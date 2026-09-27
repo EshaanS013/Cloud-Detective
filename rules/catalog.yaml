@@ -1,0 +1,261 @@
+rules:
+  - id: console-brute-force
+    name: Console brute force
+    category: identity-access
+    type: threshold
+    description: Five or more failed console logins from one source IP in ten minutes.
+    match:
+      event_name: [ConsoleLogin]
+      error_message_present: true
+    group_by: source_ip
+    window_seconds: 600
+    threshold: 5
+    base_score: 60
+    mitre_technique: T1110
+
+  - id: failed-login-distributed
+    name: Distributed failed login
+    category: identity-access
+    type: threshold
+    description: Ten or more failed console logins for one user across source IPs in fifteen minutes.
+    match:
+      event_name: [ConsoleLogin]
+      error_message_present: true
+    group_by: principal_name
+    window_seconds: 900
+    threshold: 10
+    base_score: 65
+    mitre_technique: T1110
+
+  - id: root-account-used
+    name: Root account used
+    category: identity-access
+    type: signature
+    description: An AWS API event was performed by the account root identity.
+    match:
+      principal_type: [Root]
+    base_score: 70
+    mitre_technique: T1078.004
+
+  - id: login-without-mfa
+    name: Console login without MFA
+    category: identity-access
+    type: signature
+    description: A successful console login occurred without MFA authentication.
+    match:
+      event_name: [ConsoleLogin]
+      error_code_present: false
+      mfa_authenticated: false
+    base_score: 40
+    mitre_technique: T1078.004
+
+  - id: access-denied-burst
+    name: Access denied burst
+    category: identity-access
+    type: threshold
+    description: Fifteen access-denied calls by one principal in five minutes indicate enumeration.
+    match:
+      error_code_contains: AccessDenied
+    group_by: principal_arn
+    window_seconds: 300
+    threshold: 15
+    base_score: 55
+    mitre_technique: T1580
+
+  - id: admin-policy-attached
+    name: Administrator policy attached
+    category: privilege-escalation
+    type: signature
+    description: AdministratorAccess was attached to an IAM user or role.
+    match:
+      event_name: [AttachUserPolicy, AttachRolePolicy]
+      request_contains: AdministratorAccess
+    base_score: 75
+    playbook_id: revoke-privileges
+    mitre_technique: T1098
+
+  - id: privilege-escalation-chain
+    name: Privilege escalation chain
+    category: privilege-escalation
+    type: sequence
+    description: A user, access key, and administrator attachment were created in order within five minutes.
+    group_by: principal_arn
+    window_seconds: 300
+    steps:
+      - event_name: [CreateUser]
+      - event_name: [CreateAccessKey]
+      - event_name: [AttachUserPolicy]
+        request_contains: AdministratorAccess
+    base_score: 85
+    playbook_id: revoke-privileges
+    mitre_technique: T1098
+
+  - id: inline-policy-with-wildcard
+    name: Wildcard inline policy
+    category: privilege-escalation
+    type: signature
+    description: An inline user or role policy grants all actions.
+    match:
+      event_name: [PutUserPolicy, PutRolePolicy]
+      policy_grants_all_actions: true
+    base_score: 70
+    playbook_id: revoke-privileges
+    mitre_technique: T1098
+
+  - id: new-policy-version-set
+    name: New policy version set as default
+    category: privilege-escalation
+    type: signature
+    description: A newly created IAM policy version was immediately made the default.
+    match:
+      event_name: [CreatePolicyVersion]
+      request_equals:
+        setAsDefault: true
+    base_score: 60
+    mitre_technique: T1098
+
+  - id: role-trust-policy-modified
+    name: Role trust policy modified
+    category: privilege-escalation
+    type: signature
+    description: An IAM role trust policy was changed.
+    match:
+      event_name: [UpdateAssumeRolePolicy]
+    base_score: 65
+    mitre_technique: T1098
+
+  - id: s3-public-policy
+    name: Public S3 bucket policy
+    category: data-exposure
+    type: signature
+    description: An S3 bucket policy allows a wildcard principal.
+    match:
+      event_name: [PutBucketPolicy]
+      policy_has_public_principal: true
+    base_score: 65
+    playbook_id: block-public-s3
+    mitre_technique: T1530
+
+  - id: s3-public-access-block-removed
+    name: S3 public access protection removed
+    category: data-exposure
+    type: signature
+    description: S3 public-access blocking was deleted or a protection setting was disabled.
+    match:
+      any_of:
+        - event_name: [DeletePublicAccessBlock]
+        - event_name: [PutPublicAccessBlock]
+          public_access_protection_disabled: true
+    base_score: 75
+    playbook_id: block-public-s3
+    mitre_technique: T1530
+
+  - id: s3-public-acl
+    name: Public S3 bucket ACL
+    category: data-exposure
+    type: signature
+    description: An S3 ACL grants access to AllUsers or AuthenticatedUsers.
+    match:
+      event_name: [PutBucketAcl]
+      acl_public: true
+    base_score: 70
+    playbook_id: block-public-s3
+    mitre_technique: T1530
+
+  - id: s3-encryption-removed
+    name: S3 encryption removed
+    category: data-exposure
+    type: signature
+    description: Default encryption was removed from an S3 bucket.
+    match:
+      event_name: [DeleteBucketEncryption]
+    base_score: 60
+    mitre_technique: T1562.001
+
+  - id: rds-made-public
+    name: RDS instance made public
+    category: data-exposure
+    type: signature
+    description: An RDS instance was modified to be publicly accessible.
+    match:
+      event_name: [ModifyDBInstance]
+      request_equals:
+        publiclyAccessible: true
+    base_score: 75
+    mitre_technique: T1190
+
+  - id: cloudtrail-tampering
+    name: CloudTrail tampering
+    category: defence-evasion
+    type: signature
+    description: CloudTrail logging was stopped, a trail deleted, or trail coverage reduced.
+    match:
+      any_of:
+        - event_name: [StopLogging, DeleteTrail]
+        - event_name: [UpdateTrail]
+          trail_coverage_reduced: true
+    base_score: 85
+    playbook_id: capture-evidence
+    mitre_technique: T1562.008
+
+  - id: kms-key-scheduled-deletion
+    name: KMS key scheduled for deletion
+    category: defence-evasion
+    type: signature
+    description: A KMS customer-managed key was scheduled for deletion.
+    match:
+      event_name: [ScheduleKeyDeletion]
+    base_score: 70
+    mitre_technique: T1485
+
+  - id: ec2-unusual-region
+    name: EC2 launched in an unusual region
+    category: compute-anomaly
+    type: contextual
+    description: An EC2 instance was launched in a region absent from the principal baseline.
+    match:
+      event_name: [RunInstances]
+    conditions:
+      - region_not_in_baseline: true
+    base_score: 60
+    playbook_id: quarantine-instance
+    mitre_technique: T1496
+
+  - id: ec2-cpu-sustained-high
+    name: Sustained high EC2 CPU
+    category: compute-anomaly
+    type: threshold
+    description: A configured ten-minute, 90-percent CPU alarm entered the ALARM state for a sandbox instance.
+    match:
+      event_name: [CloudWatchAlarmStateChange, AlarmStateChange]
+      request_equals:
+        metricName: CPUUtilization
+        state.value: ALARM
+    group_by: principal_arn
+    window_seconds: 600
+    threshold: 1
+    base_score: 35
+    mitre_technique: T1496
+
+  - id: unusual-origin-country
+    name: Unusual origin country
+    category: compute-anomaly
+    type: contextual
+    description: A mutating API call came from a country absent from the principal baseline.
+    match:
+      read_only: false
+    conditions:
+      - country_not_in_baseline: true
+    base_score: 45
+    mitre_technique: T1078.004
+
+  - id: first-time-api-call
+    name: First-time API call
+    category: compute-anomaly
+    type: contextual
+    description: A principal called an API that has never appeared in its baseline.
+    conditions:
+      - api_not_in_baseline: true
+    base_score: 30
+    mitre_technique: T1078.004
+

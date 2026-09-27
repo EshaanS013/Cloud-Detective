@@ -7,10 +7,11 @@ WORKDIR /app
 
 RUN addgroup --system app && adduser --system --ingroup app app
 
-COPY pyproject.toml ./
-COPY cloud_detective ./cloud_detective
-COPY alembic.ini ./
-COPY alembic ./alembic
+COPY apps/backend/pyproject.toml ./
+COPY apps/backend/cloud_detective ./cloud_detective
+COPY apps/backend/alembic.ini ./
+COPY apps/backend/alembic ./alembic
+COPY rules ./rules
 
 RUN pip install --no-cache-dir .
 
