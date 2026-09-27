@@ -4,7 +4,7 @@ Cloud Detective is an AWS control-plane security monitoring and automated incide
 
 ## Current status
 
-Day 1 foundation is complete on `feat/day1-foundation`:
+The local foundation and detection-engine phases are complete:
 
 - FastAPI backend and health endpoint
 - Canonical CloudTrail event normalization
@@ -12,6 +12,12 @@ Day 1 foundation is complete on `feat/day1-foundation`:
 - React/TypeScript dashboard shell
 - Docker Compose development stack
 - Backend, frontend, and Terraform CI checks
+- Data-driven signature, threshold, contextual, and sequence detection
+- Explainable risk scoring and behavioural baselining
+- Every rule listed in the specification catalogue implemented in YAML
+
+The specification says there are 18 rules, while its catalogue tables enumerate 21. Cloud
+Detective implements all 21 listed rules so none of the documented detections is omitted.
 
 ## Prerequisites
 

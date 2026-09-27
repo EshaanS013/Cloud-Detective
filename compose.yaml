@@ -17,15 +17,19 @@ services:
 
   api:
     build:
-      context: ./apps/backend
+      context: .
+      dockerfile: apps/backend/Dockerfile
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://cloud_detective:cloud_detective_local@postgres:5432/cloud_detective}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       RESPONSE_MODE: ${RESPONSE_MODE:-dry_run}
+      BASELINE_WARMUP_HOURS: ${BASELINE_WARMUP_HOURS:-24}
+      RULES_PATH: ${RULES_PATH:-/app/rules}
     ports:
       - "8000:8000"
     volumes:
       - ./apps/backend:/app
+      - ./rules:/app/rules:ro
     depends_on:
       postgres:
         condition: service_healthy
