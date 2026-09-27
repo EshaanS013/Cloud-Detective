@@ -26,6 +26,25 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Local environment and application artifacts
+.env
+.venv/
+.coverage
+htmlcov/
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
+# Terraform local state and caches
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.lock.hcl
+
 # PyInstaller
 #   Usually these files are written by a python script from a template
 #   before PyInstaller builds the exe, so as to inject date/other infos into it.

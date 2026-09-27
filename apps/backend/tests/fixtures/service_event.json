@@ -1,0 +1,17 @@
+{
+  "detail": {
+    "userIdentity": {
+      "type": "AWSService",
+      "invokedBy": "cloudtrail.amazonaws.com"
+    },
+    "eventTime": "2026-09-27T08:00:00Z",
+    "eventSource": "s3.amazonaws.com",
+    "eventName": "GetBucketAcl",
+    "awsRegion": "ap-south-1",
+    "sourceIPAddress": "cloudtrail.amazonaws.com",
+    "userAgent": "cloudtrail.amazonaws.com",
+    "requestParameters": null,
+    "eventID": "e9a94fd8-aa1d-48d6-a7cf-2f419a7fb218",
+    "readOnly": true
+  }
+}

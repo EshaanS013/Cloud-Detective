@@ -1,0 +1,40 @@
+{
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.ec2",
+  "time": "2026-09-27T07:15:00Z",
+  "region": "ap-south-1",
+  "detail": {
+    "userIdentity": {
+      "type": "AssumedRole",
+      "principalId": "AROAXAMPLE:developer-session",
+      "arn": "arn:aws:sts::111122223333:assumed-role/Developer/developer-session",
+      "sessionContext": {
+        "sessionIssuer": {
+          "type": "Role",
+          "arn": "arn:aws:iam::111122223333:role/Developer",
+          "userName": "Developer"
+        },
+        "attributes": {
+          "mfaAuthenticated": "false"
+        }
+      }
+    },
+    "eventTime": "2026-09-27T07:15:00Z",
+    "eventSource": "ec2.amazonaws.com",
+    "eventName": "RunInstances",
+    "awsRegion": "ap-south-1",
+    "sourceIPAddress": "198.51.100.25",
+    "userAgent": "Boto3/1.35.0",
+    "requestParameters": {
+      "instanceType": "t3.micro"
+    },
+    "resources": [
+      {
+        "type": "AWS::EC2::Instance",
+        "ARN": "arn:aws:ec2:ap-south-1:111122223333:instance/i-0123456789abcdef0"
+      }
+    ],
+    "eventID": "e8975af8-f8e0-44d4-ac16-238891c9ac93",
+    "readOnly": false
+  }
+}

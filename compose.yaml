@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cloud_detective}
+      POSTGRES_USER: ${POSTGRES_USER:-cloud_detective}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cloud_detective_local}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://cloud_detective:cloud_detective_local@postgres:5432/cloud_detective}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      RESPONSE_MODE: ${RESPONSE_MODE:-dry_run}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn cloud_detective.main:app --host 0.0.0.0 --port 8000 --reload
+
+  web:
+    build:
+      context: ./apps/web
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./apps/web:/app
+      - web-node-modules:/app/node_modules
+    depends_on:
+      - api
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  postgres-data:
+  web-node-modules:

@@ -1,0 +1,42 @@
+{
+  "version": "0",
+  "id": "5a0c6ec6-04b1-4fbb-9354-cdc4cb81d691",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.iam",
+  "account": "111122223333",
+  "time": "2026-09-27T06:30:00Z",
+  "region": "us-east-1",
+  "detail": {
+    "eventVersion": "1.11",
+    "userIdentity": {
+      "type": "IAMUser",
+      "principalId": "AIDAEXAMPLE",
+      "arn": "arn:aws:iam::111122223333:user/cd-test-alice",
+      "accountId": "111122223333",
+      "userName": "cd-test-alice",
+      "sessionContext": {
+        "attributes": {
+          "mfaAuthenticated": "true",
+          "creationDate": "2026-09-27T06:00:00Z"
+        }
+      }
+    },
+    "eventTime": "2026-09-27T06:30:00Z",
+    "eventSource": "iam.amazonaws.com",
+    "eventName": "AttachUserPolicy",
+    "awsRegion": "us-east-1",
+    "sourceIPAddress": "203.0.113.10",
+    "userAgent": "aws-cli/2.17.0",
+    "requestParameters": {
+      "userName": "cd-test-bob",
+      "policyArn": "arn:aws:iam::aws:policy/AdministratorAccess"
+    },
+    "responseElements": null,
+    "requestID": "9df57fbe-2961-4aea-bf2e-8c659888b102",
+    "eventID": "a4e75512-4361-4c5c-9e76-a11b112f3302",
+    "readOnly": false,
+    "eventType": "AwsApiCall",
+    "managementEvent": true,
+    "recipientAccountId": "111122223333"
+  }
+}
