@@ -43,7 +43,7 @@ vite.config.d.ts
 *.tfstate
 *.tfstate.*
 *.tfplan
-.terraform.lock.hcl
+*.zip
 
 # PyInstaller
 #   Usually these files are written by a python script from a template

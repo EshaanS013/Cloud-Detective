@@ -1,0 +1,16 @@
+aws_region       = "ap-southeast-2"
+environment      = "dev"
+deploy_database  = false
+deploy_runtime   = false
+deploy_frontend  = false
+response_mode    = "dry_run"
+monthly_budget_usd = 15
+budget_alert_email = ""
+
+# Set after the first apply creates ECR repositories and CI publishes images.
+api_image    = ""
+worker_image = ""
+api_certificate_arn = ""
+
+callback_urls = ["http://localhost:5173/callback"]
+logout_urls   = ["http://localhost:5173/"]

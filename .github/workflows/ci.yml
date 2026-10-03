@@ -22,7 +22,7 @@ jobs:
           cache: pip
           cache-dependency-path: apps/backend/pyproject.toml
       - run: python -m pip install -e ".[dev]"
-      - run: ruff check .
+      - run: ruff check . ../../serverless
       - run: pytest
 
   frontend:
@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose config --quiet
-      - run: docker compose build api web
+      - run: docker compose build api worker web
 
   terraform:
     runs-on: ubuntu-latest

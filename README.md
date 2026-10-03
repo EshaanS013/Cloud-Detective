@@ -1,64 +1,53 @@
 # Cloud Detective
 
-Cloud Detective is an AWS control-plane security monitoring and automated incident-response platform. It ingests CloudTrail events, normalizes them, evaluates explainable detection rules, scores findings, and safely responds to high-confidence threats in a tagged sandbox.
+Cloud Detective is an AWS control-plane detection and response platform. It ingests CloudTrail events, normalizes and deduplicates them, evaluates explainable rules, scores findings, supports investigations through an authenticated dashboard, and runs tightly scoped response playbooks.
 
-## Current status
+## Implemented MVP
 
-The local foundation and detection-engine phases are complete:
+- Single-Region AWS architecture for `ap-southeast-2`
+- CloudTrail → EventBridge → collector Lambda → encrypted SQS pipeline
+- Stateful ECS detector worker with duplicate-safe PostgreSQL persistence
+- 21 data-driven signature, threshold, contextual, and sequence rules
+- Explainable risk scoring and behavioural baselines
+- FastAPI endpoints for summary, findings, events, rules, ingestion, and response approval
+- Cognito authorization-code login with PKCE, mandatory TOTP MFA, and Analyst/Responder groups
+- React operations dashboard with findings, events, and rule catalogue views
+- Dry-run-by-default responder for EC2 stop, S3 public-access block, and access-key disable
+- Two-layer remediation guardrail: IAM resource-tag conditions plus runtime verification of `CloudDetectiveSandbox=true`
+- Encrypted S3, SQS, SNS, ECR, RDS, CloudTrail, KMS, CloudFront, ECS, and dead-letter queues managed by Terraform
 
-- FastAPI backend and health endpoint
-- Canonical CloudTrail event normalization
-- PostgreSQL schema managed by Alembic
-- React/TypeScript dashboard shell
-- Docker Compose development stack
-- Backend, frontend, and Terraform CI checks
-- Data-driven signature, threshold, contextual, and sequence detection
-- Explainable risk scoring and behavioural baselining
-- Every rule listed in the specification catalogue implemented in YAML
-
-The specification says there are 18 rules, while its catalogue tables enumerate 21. Cloud
-Detective implements all 21 listed rules so none of the documented detections is omitted.
-
-## Prerequisites
-
-- Docker Desktop with Docker Compose
-- Python 3.12+
-- Node.js 20+
-- Terraform 1.10+ (only needed for infrastructure work)
+The source specification says “18 rules,” but its catalogue enumerates 21. This implementation includes all 21 catalogue entries.
 
 ## Local development
 
-Copy `.env.example` to `.env`, then start the stack:
+Prerequisites: Docker Desktop, Python 3.12+, Node.js 20+, and Terraform 1.10+.
 
 ```bash
+copy .env.example .env
 docker compose up --build
 ```
 
-Services:
+- Dashboard: <http://localhost:5173>
+- API: <http://localhost:8000>
+- API documentation: <http://localhost:8000/docs>
+- PostgreSQL: `localhost:5432`
 
-- Dashboard: http://localhost:5173
-- API: http://localhost:8000
-- API documentation: http://localhost:8000/docs
-- PostgreSQL: localhost:5432
+The API applies Alembic migrations on startup. Local Cognito enforcement is disabled; production ECS configuration enables it.
 
-Run database migrations:
+To run the real SQS worker locally after infrastructure exists, populate `QUEUE_URL` and start the optional profile:
 
 ```bash
-docker compose exec api alembic upgrade head
+docker compose --profile aws up worker
 ```
 
-## Tests
-
-Backend:
+## Quality checks
 
 ```bash
 cd apps/backend
 python -m pip install -e ".[dev]"
+ruff check . ../../serverless
 pytest
-ruff check .
 ```
-
-Frontend:
 
 ```bash
 cd apps/web
@@ -66,17 +55,32 @@ npm ci
 npm run lint
 npm test
 npm run build
+npm audit
 ```
-
-Terraform:
 
 ```bash
 cd infra
 terraform fmt -check -recursive
 terraform init -backend=false
 terraform validate
+terraform plan
 ```
+
+## AWS deployment sequence
+
+All billable runtime switches default to `false`. Review the Terraform plan before any apply.
+
+1. Copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars`.
+2. Apply the base plan to create networking, security, event pipeline, Cognito, ECR, and storage.
+3. Build and push immutable API and worker images to the two ECR repository outputs.
+4. Set `deploy_database=true`, `deploy_runtime=true`, the image URIs, and an ACM certificate ARN from `ap-southeast-2`.
+5. Build the dashboard with the Terraform Cognito/API outputs and upload `apps/web/dist` to the frontend bucket.
+6. Set `deploy_frontend=true` and apply the reviewed plan.
+7. Create the first Cognito team member and add them to `Responder`; all other investigators can use `Analyst`.
+8. Keep `response_mode="dry_run"` until sandbox simulations pass. Enforcement also requires the target resource tag `CloudDetectiveSandbox=true`.
+
+The new AWS experience does not allow the cross-Region EventBridge forwarder described in the original specification. This build intentionally monitors the selected Region only and uses a single-Region CloudTrail.
 
 ## Safety boundary
 
-Automated remediation will default to dry-run and will only target explicitly allowlisted or `Project=CloudDetective` sandbox resources. Never point the simulator or responder at production resources.
+Never tag production resources with `CloudDetectiveSandbox=true`. Enforced response is impossible unless both the deployment response mode and the individual request are set to enforcement, the caller belongs to the Responder group, and the target passes sandbox tag checks.

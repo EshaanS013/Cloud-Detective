@@ -147,6 +147,11 @@ class DetectionEngine:
             event_ids=event_ids,
             risk=risk,
             dedupe_key=dedupe_key,
+            principal_arn=trigger.principal_arn,
+            source_ip=trigger.source_ip,
+            affected_resources=sorted(
+                {resource for matched_event in events for resource in matched_event.resources}
+            ),
             playbook_id=rule.playbook_id,
             mitre_technique=rule.mitre_technique,
         )

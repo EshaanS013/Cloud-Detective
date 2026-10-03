@@ -20,6 +20,14 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
     baseline_warmup_hours: int = 24
     rules_path: Path = Path("rules")
+    auth_enabled: bool = False
+    cognito_user_pool_id: str | None = None
+    cognito_app_client_id: str | None = None
+    aws_region: str = "ap-southeast-2"
+    database_secret_arn: str | None = None
+    queue_url: str | None = None
+    response_queue_url: str | None = None
+    poll_wait_seconds: int = 20
 
 
 @lru_cache
