@@ -176,40 +176,45 @@ resource "aws_lb_target_group" "api" {
   }
 }
 
-resource "aws_lb_listener" "https" {
+resource "random_password" "origin_verify" {
   count = var.deploy_runtime ? 1 : 0
 
-  load_balancer_arn = aws_lb.api[0].arn
-  port              = 443
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = var.api_certificate_arn
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.api[0].arn
-  }
-
-  lifecycle {
-    precondition {
-      condition     = var.api_certificate_arn != ""
-      error_message = "api_certificate_arn is required when deploy_runtime is true."
-    }
-  }
+  length  = 40
+  special = false
 }
 
-resource "aws_lb_listener" "redirect" {
+resource "aws_lb_listener" "http" {
   count = var.deploy_runtime ? 1 : 0
 
   load_balancer_arn = aws_lb.api[0].arn
   port              = 80
   protocol          = "HTTP"
+
   default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "Forbidden"
+      status_code  = "403"
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "cloudfront_api" {
+  count = var.deploy_runtime ? 1 : 0
+
+  listener_arn = aws_lb_listener.http[0].arn
+  priority     = 100
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.api[0].arn
+  }
+
+  condition {
+    http_header {
+      http_header_name = "X-CloudDetective-Origin"
+      values           = [random_password.origin_verify[0].result]
     }
   }
 }
@@ -278,6 +283,7 @@ resource "aws_ecs_task_definition" "worker" {
     name        = "worker"
     image       = var.worker_image
     essential   = true
+    command     = ["python", "-m", "cloud_detective.worker"]
     environment = local.common_environment
     logConfiguration = {
       logDriver = "awslogs"
@@ -318,7 +324,7 @@ resource "aws_ecs_service" "api" {
     container_port   = 8000
   }
 
-  depends_on = [aws_lb_listener.https]
+  depends_on = [aws_lb_listener_rule.cloudfront_api]
 }
 
 resource "aws_ecs_service" "worker" {

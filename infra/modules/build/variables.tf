@@ -1,0 +1,9 @@
+variable "name_prefix" { type = string }
+variable "aws_region" { type = string }
+variable "source_bucket_id" { type = string }
+variable "source_bucket_arn" { type = string }
+variable "kms_key_arn" { type = string }
+variable "api_repository_arn" { type = string }
+variable "api_repository_url" { type = string }
+variable "worker_repository_arn" { type = string }
+variable "worker_repository_url" { type = string }

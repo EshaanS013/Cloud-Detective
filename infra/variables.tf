@@ -51,12 +51,6 @@ variable "worker_image" {
   default     = ""
 }
 
-variable "api_certificate_arn" {
-  description = "ACM certificate ARN in ap-southeast-2 for the API load balancer."
-  type        = string
-  default     = ""
-}
-
 variable "callback_urls" {
   description = "Exact Cognito OAuth callback URLs."
   type        = list(string)

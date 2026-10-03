@@ -33,7 +33,7 @@ output "cognito_domain" {
 }
 
 output "api_url" {
-  value = module.compute.api_url
+  value = var.deploy_runtime && var.deploy_frontend ? "${module.frontend.dashboard_url}/api/v1" : null
 }
 
 output "dashboard_url" {
@@ -50,4 +50,16 @@ output "alert_topic_arn" {
 
 output "operations_dashboard_name" {
   value = module.monitoring.dashboard_name
+}
+
+output "frontend_bucket_id" {
+  value = module.data.frontend_bucket_id
+}
+
+output "container_build_project" {
+  value = module.build.project_name
+}
+
+output "container_build_source_key" {
+  value = module.build.source_key
 }

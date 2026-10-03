@@ -72,10 +72,10 @@ All billable runtime switches default to `false`. Review the Terraform plan befo
 
 1. Copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars`.
 2. Apply the base plan to create networking, security, event pipeline, Cognito, ECR, and storage.
-3. Build and push immutable API and worker images to the two ECR repository outputs.
-4. Set `deploy_database=true`, `deploy_runtime=true`, the image URIs, and an ACM certificate ARN from `ap-southeast-2`.
-5. Build the dashboard with the Terraform Cognito/API outputs and upload `apps/web/dist` to the frontend bucket.
-6. Set `deploy_frontend=true` and apply the reviewed plan.
+3. Upload the repository source archive to the build source key and run the CodeBuild container project to publish immutable API and worker images.
+4. Set `deploy_database=true`, `deploy_runtime=true`, `deploy_frontend=true`, and the image URIs, then apply. CloudFront provides HTTPS for both the dashboard and `/api/*`; the load balancer accepts only verified CloudFront origin traffic.
+5. Build the dashboard with the Terraform Cognito outputs and `VITE_API_BASE_URL=/api/v1`, then upload `apps/web/dist` to the frontend bucket.
+6. Update the Cognito callback and logout URLs to the deployed dashboard URL and apply once more.
 7. Create the first Cognito team member and add them to `Responder`; all other investigators can use `Analyst`.
 8. Keep `response_mode="dry_run"` until sandbox simulations pass. Enforcement also requires the target resource tag `CloudDetectiveSandbox=true`.
 

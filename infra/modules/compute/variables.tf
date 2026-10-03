@@ -17,6 +17,5 @@ variable "cognito_app_client_id" { type = string }
 variable "deploy_runtime" { type = bool }
 variable "api_image" { type = string }
 variable "worker_image" { type = string }
-variable "api_certificate_arn" { type = string }
 variable "response_mode" { type = string }
 variable "aws_region" { type = string }

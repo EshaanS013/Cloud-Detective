@@ -2,7 +2,7 @@ import json
 from collections.abc import Generator
 from functools import lru_cache
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import URL, Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from cloud_detective.aws import aws_client
@@ -21,10 +21,14 @@ def database_url() -> str:
     host = secret["host"]
     port = secret.get("port", 5432)
     database = secret.get("dbname", "cloud_detective")
-    return (
-        f"postgresql+psycopg://{secret['username']}:{secret['password']}@"
-        f"{host}:{port}/{database}"
-    )
+    return URL.create(
+        "postgresql+psycopg",
+        username=secret["username"],
+        password=secret["password"],
+        host=host,
+        port=port,
+        database=database,
+    ).render_as_string(hide_password=False)
 
 
 @lru_cache

@@ -10,7 +10,6 @@ budget_alert_email = ""
 # Set after the first apply creates ECR repositories and CI publishes images.
 api_image    = ""
 worker_image = ""
-api_certificate_arn = ""
 
 callback_urls = ["http://localhost:5173/callback"]
 logout_urls   = ["http://localhost:5173/"]

@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -6,6 +7,7 @@ from fastapi import HTTPException
 
 from cloud_detective import worker
 from cloud_detective.auth import Principal, current_principal, require_analyst, require_responder
+from cloud_detective.db import session as db_session
 from cloud_detective.db.session import database_url
 from cloud_detective.main import load_balancer_health
 
@@ -31,6 +33,33 @@ def test_local_database_url_and_load_balancer_health() -> None:
     database_url.cache_clear()
     assert database_url().startswith("postgresql+psycopg://")
     assert load_balancer_health() == {"status": "ok"}
+
+
+def test_database_secret_credentials_are_url_encoded(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = Mock()
+    client.get_secret_value.return_value = {
+        "SecretString": json.dumps(
+            {
+                "username": "cloud_detective",
+                "password": "special@password/with spaces",
+                "host": "database.internal",
+                "port": 5432,
+                "dbname": "cloud_detective",
+            }
+        )
+    }
+    monkeypatch.setattr(
+        db_session,
+        "get_settings",
+        lambda: SimpleNamespace(database_secret_arn="arn:aws:secretsmanager:test"),
+    )
+    monkeypatch.setattr(db_session, "aws_client", lambda _: client)
+
+    database_url.cache_clear()
+    result = database_url()
+
+    assert "special%40password%2Fwith spaces" in result
+    database_url.cache_clear()
 
 
 def test_worker_commits_new_event_and_findings(monkeypatch: pytest.MonkeyPatch) -> None:

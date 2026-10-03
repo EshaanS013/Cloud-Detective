@@ -65,18 +65,33 @@ module "compute" {
   deploy_runtime        = var.deploy_runtime
   api_image             = var.api_image
   worker_image          = var.worker_image
-  api_certificate_arn   = var.api_certificate_arn
   response_mode         = var.response_mode
   aws_region            = var.aws_region
 }
 
 module "frontend" {
-  source          = "./modules/frontend"
-  name_prefix     = local.name_prefix
-  bucket_id       = module.data.frontend_bucket_id
-  bucket_arn      = module.data.frontend_bucket_arn
-  bucket_domain   = module.data.frontend_bucket_domain
-  deploy_frontend = var.deploy_frontend
+  source               = "./modules/frontend"
+  name_prefix          = local.name_prefix
+  bucket_id            = module.data.frontend_bucket_id
+  bucket_arn           = module.data.frontend_bucket_arn
+  bucket_domain        = module.data.frontend_bucket_domain
+  deploy_frontend      = var.deploy_frontend
+  deploy_runtime       = var.deploy_runtime
+  api_origin_domain    = module.compute.api_origin_domain
+  origin_verify_secret = module.compute.origin_verify_secret
+}
+
+module "build" {
+  source                = "./modules/build"
+  name_prefix           = local.name_prefix
+  aws_region            = var.aws_region
+  source_bucket_id      = module.data.frontend_bucket_id
+  source_bucket_arn     = module.data.frontend_bucket_arn
+  kms_key_arn           = module.data.kms_key_arn
+  api_repository_arn    = module.compute.api_repository_arn
+  api_repository_url    = module.compute.api_repository_url
+  worker_repository_arn = module.compute.worker_repository_arn
+  worker_repository_url = module.compute.worker_repository_url
 }
 
 module "monitoring" {
