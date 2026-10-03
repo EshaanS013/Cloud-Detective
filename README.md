@@ -72,7 +72,7 @@ All billable runtime switches default to `false`. Review the Terraform plan befo
 
 1. Copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars`.
 2. Apply the base plan to create networking, security, event pipeline, Cognito, ECR, and storage.
-3. Upload the repository source archive to the build source key and run the CodeBuild container project to publish immutable API and worker images.
+3. Upload the repository source archive to the build source key, set `deploy_builder=true` with an immutable image tag, and apply. The no-ingress EC2 builder publishes both images, records an encrypted status/log in S3, and shuts down; set `deploy_builder=false` immediately afterward to remove it.
 4. Set `deploy_database=true`, `deploy_runtime=true`, `deploy_frontend=true`, and the image URIs, then apply. CloudFront provides HTTPS for both the dashboard and `/api/*`; the load balancer accepts only verified CloudFront origin traffic.
 5. Build the dashboard with the Terraform Cognito outputs and `VITE_API_BASE_URL=/api/v1`, then upload `apps/web/dist` to the frontend bucket.
 6. Update the Cognito callback and logout URLs to the deployed dashboard URL and apply once more.

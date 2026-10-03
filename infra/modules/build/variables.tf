@@ -1,5 +1,9 @@
 variable "name_prefix" { type = string }
 variable "aws_region" { type = string }
+variable "deploy_builder" { type = bool }
+variable "image_tag" { type = string }
+variable "vpc_id" { type = string }
+variable "public_subnet_id" { type = string }
 variable "source_bucket_id" { type = string }
 variable "source_bucket_arn" { type = string }
 variable "kms_key_arn" { type = string }

@@ -39,6 +39,18 @@ variable "deploy_frontend" {
   default     = false
 }
 
+variable "deploy_builder" {
+  description = "Create the temporary no-ingress EC2 container image builder."
+  type        = bool
+  default     = false
+}
+
+variable "builder_image_tag" {
+  description = "Immutable image tag published by the temporary builder."
+  type        = string
+  default     = ""
+}
+
 variable "api_image" {
   description = "Immutable API image URI (repository URL plus digest or version tag)."
   type        = string

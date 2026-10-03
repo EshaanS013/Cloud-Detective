@@ -56,10 +56,18 @@ output "frontend_bucket_id" {
   value = module.data.frontend_bucket_id
 }
 
-output "container_build_project" {
-  value = module.build.project_name
+output "container_builder_instance_id" {
+  value = module.build.instance_id
 }
 
 output "container_build_source_key" {
   value = module.build.source_key
+}
+
+output "container_build_status_key" {
+  value = module.build.status_key
+}
+
+output "container_build_log_key" {
+  value = module.build.log_key
 }

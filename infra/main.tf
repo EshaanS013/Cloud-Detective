@@ -85,6 +85,10 @@ module "build" {
   source                = "./modules/build"
   name_prefix           = local.name_prefix
   aws_region            = var.aws_region
+  deploy_builder        = var.deploy_builder
+  image_tag             = var.builder_image_tag
+  vpc_id                = module.network.vpc_id
+  public_subnet_id      = module.network.public_subnet_ids[0]
   source_bucket_id      = module.data.frontend_bucket_id
   source_bucket_arn     = module.data.frontend_bucket_arn
   kms_key_arn           = module.data.kms_key_arn

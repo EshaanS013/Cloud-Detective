@@ -1,0 +1,35 @@
+#!/bin/bash
+set -Eeuo pipefail
+
+exec > >(tee /var/log/cloud-detective-build.log) 2>&1
+BUILD_STATUS="failed"
+
+finish() {
+  set +e
+  printf '{"status":"%s","imageTag":"%s","completedAt":"%s"}\n' \
+    "$BUILD_STATUS" "${image_tag}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /tmp/build-status.json
+  aws s3 cp /tmp/build-status.json "s3://${source_bucket_id}/${status_key}" \
+    --region "${aws_region}" --only-show-errors
+  aws s3 cp /var/log/cloud-detective-build.log "s3://${source_bucket_id}/${log_key}" \
+    --region "${aws_region}" --only-show-errors
+  shutdown -h now
+}
+trap finish EXIT
+
+dnf install -y docker unzip
+systemctl enable --now docker
+
+mkdir -p /opt/cloud-detective
+aws s3 cp "s3://${source_bucket_id}/${source_key}" /tmp/source.zip \
+  --region "${aws_region}" --only-show-errors
+unzip -q /tmp/source.zip -d /opt/cloud-detective
+cd /opt/cloud-detective
+
+aws ecr get-login-password --region "${aws_region}" | \
+  docker login --username AWS --password-stdin "${registry_domain}"
+docker build --pull -f apps/backend/Dockerfile -t "${api_repository_url}:${image_tag}" .
+docker tag "${api_repository_url}:${image_tag}" "${worker_repository_url}:${image_tag}"
+docker push "${api_repository_url}:${image_tag}"
+docker push "${worker_repository_url}:${image_tag}"
+
+BUILD_STATUS="succeeded"
