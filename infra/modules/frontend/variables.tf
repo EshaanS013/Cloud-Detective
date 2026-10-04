@@ -15,3 +15,4 @@ variable "origin_verify_secret" {
   nullable  = true
   sensitive = true
 }
+variable "cognito_domain" { type = string }

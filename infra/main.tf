@@ -85,6 +85,7 @@ module "frontend" {
   deploy_runtime       = var.deploy_runtime
   api_origin_domain    = module.compute.api_origin_domain
   origin_verify_secret = module.compute.origin_verify_secret
+  cognito_domain       = module.security.cognito_domain
 }
 
 module "build" {

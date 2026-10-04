@@ -12,16 +12,18 @@ import urllib.request
 import boto3
 from botocore.exceptions import ClientError
 
-
 S3 = boto3.client("s3")
 BUCKET = os.environ["FRONTEND_BUCKET"]
 API_ORIGIN = os.environ.get("API_ORIGIN", "").rstrip("/")
 ORIGIN_SECRET = os.environ.get("ORIGIN_SECRET", "")
+COGNITO_DOMAIN = os.environ.get("COGNITO_DOMAIN", "").rstrip("/")
+
+CONNECT_SOURCES = "'self'" + (f" {COGNITO_DOMAIN}" if COGNITO_DOMAIN else "")
 
 SECURITY_HEADERS = {
     "content-security-policy": (
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; "
+        f"img-src 'self' data:; connect-src {CONNECT_SOURCES}; frame-ancestors 'none'; "
         "base-uri 'self'; form-action 'self'"
     ),
     "referrer-policy": "strict-origin-when-cross-origin",

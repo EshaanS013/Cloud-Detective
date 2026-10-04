@@ -82,6 +82,7 @@ resource "aws_lambda_function" "gateway" {
       FRONTEND_BUCKET = var.bucket_id
       API_ORIGIN      = var.deploy_runtime ? "http://${var.api_origin_domain}" : ""
       ORIGIN_SECRET   = var.deploy_runtime ? var.origin_verify_secret : ""
+      COGNITO_DOMAIN  = var.cognito_domain
     }
   }
 
