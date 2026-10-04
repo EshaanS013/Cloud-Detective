@@ -8,6 +8,18 @@ variable "database_secret_arn" {
   type     = string
   nullable = true
 }
+variable "database_address" {
+  type     = string
+  nullable = true
+}
+variable "database_port" {
+  type     = number
+  nullable = true
+}
+variable "database_name" {
+  type     = string
+  nullable = true
+}
 variable "event_queue_url" { type = string }
 variable "event_queue_arn" { type = string }
 variable "response_queue_url" { type = string }

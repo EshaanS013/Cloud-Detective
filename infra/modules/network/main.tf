@@ -70,7 +70,7 @@ resource "aws_route_table_association" "database" {
 
 resource "aws_vpc_endpoint" "s3" {
   vpc_id            = aws_vpc.this.id
-  service_name      = "com.amazonaws.${data.aws_region.current.name}.s3"
+  service_name      = "com.amazonaws.${data.aws_region.current.region}.s3"
   vpc_endpoint_type = "Gateway"
   route_table_ids   = [aws_route_table.public.id, aws_route_table.database.id]
 
@@ -79,21 +79,17 @@ resource "aws_vpc_endpoint" "s3" {
 
 data "aws_region" "current" {}
 
-data "aws_ec2_managed_prefix_list" "cloudfront_origin" {
-  name = "com.amazonaws.global.cloudfront.origin-facing"
-}
-
 resource "aws_security_group" "alb" {
   name_prefix = "${var.name_prefix}-alb-"
-  description = "CloudFront-only ingress to the Cloud Detective load balancer"
+  description = "Public ingress protected by a secret origin-verification header"
   vpc_id      = aws_vpc.this.id
 
   ingress {
-    description     = "HTTP from CloudFront origins"
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront_origin.id]
+    description = "HTTP to the origin-verified listener"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {

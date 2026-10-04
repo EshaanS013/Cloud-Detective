@@ -56,6 +56,9 @@ module "compute" {
   app_sg_id             = module.network.app_sg_id
   kms_key_arn           = module.data.kms_key_arn
   database_secret_arn   = module.data.database_secret_arn
+  database_address      = module.data.database_address
+  database_port         = module.data.database_port
+  database_name         = module.data.database_name
   event_queue_url       = module.pipeline.event_queue_url
   event_queue_arn       = module.pipeline.event_queue_arn
   response_queue_url    = module.pipeline.response_queue_url
@@ -75,6 +78,8 @@ module "frontend" {
   bucket_id            = module.data.frontend_bucket_id
   bucket_arn           = module.data.frontend_bucket_arn
   bucket_domain        = module.data.frontend_bucket_domain
+  kms_key_arn          = module.data.kms_key_arn
+  aws_region           = var.aws_region
   deploy_frontend      = var.deploy_frontend
   deploy_runtime       = var.deploy_runtime
   api_origin_domain    = module.compute.api_origin_domain

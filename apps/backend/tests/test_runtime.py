@@ -51,7 +51,12 @@ def test_database_secret_credentials_are_url_encoded(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(
         db_session,
         "get_settings",
-        lambda: SimpleNamespace(database_secret_arn="arn:aws:secretsmanager:test"),
+        lambda: SimpleNamespace(
+            database_secret_arn="arn:aws:secretsmanager:test",
+            database_host=None,
+            database_port=5432,
+            database_name="cloud_detective",
+        ),
     )
     monkeypatch.setattr(db_session, "aws_client", lambda _: client)
 
@@ -59,6 +64,32 @@ def test_database_secret_credentials_are_url_encoded(monkeypatch: pytest.MonkeyP
     result = database_url()
 
     assert "special%40password%2Fwith spaces" in result
+    database_url.cache_clear()
+
+
+def test_database_secret_uses_runtime_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = Mock()
+    client.get_secret_value.return_value = {
+        "SecretString": json.dumps(
+            {"username": "cloud_detective", "password": "managed-password"}
+        )
+    }
+    monkeypatch.setattr(
+        db_session,
+        "get_settings",
+        lambda: SimpleNamespace(
+            database_secret_arn="arn:aws:secretsmanager:test",
+            database_host="database.internal",
+            database_port=5432,
+            database_name="cloud_detective",
+        ),
+    )
+    monkeypatch.setattr(db_session, "aws_client", lambda _: client)
+
+    database_url.cache_clear()
+    result = database_url()
+
+    assert "database.internal:5432/cloud_detective" in result
     database_url.cache_clear()
 
 

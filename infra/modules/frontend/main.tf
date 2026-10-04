@@ -1,151 +1,135 @@
-resource "aws_cloudfront_origin_access_control" "this" {
+data "archive_file" "gateway" {
   count = var.deploy_frontend ? 1 : 0
 
-  name                              = "${var.name_prefix}-dashboard"
-  description                       = "Private access to the Cloud Detective dashboard bucket"
-  origin_access_control_origin_type = "s3"
-  signing_behavior                  = "always"
-  signing_protocol                  = "sigv4"
+  type        = "zip"
+  source_dir  = "${path.module}/lambda"
+  output_path = "${path.module}/frontend_gateway.zip"
 }
 
-resource "aws_cloudfront_response_headers_policy" "security" {
+resource "aws_cloudwatch_log_group" "gateway" {
   count = var.deploy_frontend ? 1 : 0
 
-  name = "${var.name_prefix}-security-headers"
+  name              = "/aws/lambda/${var.name_prefix}-frontend-gateway"
+  retention_in_days = 14
+}
 
-  security_headers_config {
-    content_type_options { override = true }
-    frame_options {
-      frame_option = "DENY"
-      override     = true
-    }
-    referrer_policy {
-      referrer_policy = "strict-origin-when-cross-origin"
-      override        = true
-    }
-    strict_transport_security {
-      access_control_max_age_sec = 31536000
-      include_subdomains         = true
-      preload                    = true
-      override                   = true
-    }
-    xss_protection {
-      mode_block = true
-      protection = true
-      override   = true
+resource "aws_iam_role" "gateway" {
+  count = var.deploy_frontend ? 1 : 0
+
+  name = "${var.name_prefix}-frontend-gateway"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "gateway_logs" {
+  count = var.deploy_frontend ? 1 : 0
+
+  role       = aws_iam_role.gateway[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+data "aws_iam_policy_document" "gateway" {
+  count = var.deploy_frontend ? 1 : 0
+
+  statement {
+    sid       = "ReadDashboardAssets"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["${var.bucket_arn}/*"]
+  }
+
+  statement {
+    sid       = "DecryptDashboardAssets"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt"]
+    resources = [var.kms_key_arn]
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["s3.${var.aws_region}.amazonaws.com"]
     }
   }
 }
 
-resource "aws_cloudfront_function" "spa_rewrite" {
+resource "aws_iam_role_policy" "gateway" {
   count = var.deploy_frontend ? 1 : 0
 
-  name    = "${var.name_prefix}-spa-rewrite"
-  runtime = "cloudfront-js-2.0"
-  comment = "Route dashboard paths to the React application shell"
-  publish = true
-  code    = <<-EOT
-    function handler(event) {
-      var request = event.request;
-      var leaf = request.uri.split('/').pop();
-      if (request.uri.endsWith('/')) {
-        request.uri += 'index.html';
-      } else if (!leaf.includes('.')) {
-        request.uri = '/index.html';
-      }
-      return request;
-    }
-  EOT
+  name   = "${var.name_prefix}-frontend-read"
+  role   = aws_iam_role.gateway[0].id
+  policy = data.aws_iam_policy_document.gateway[0].json
 }
 
-resource "aws_cloudfront_distribution" "this" {
+resource "aws_lambda_function" "gateway" {
   count = var.deploy_frontend ? 1 : 0
 
-  enabled             = true
-  is_ipv6_enabled     = true
-  default_root_object = "index.html"
-  price_class         = "PriceClass_100"
-  comment             = "Cloud Detective dashboard"
+  function_name    = "${var.name_prefix}-frontend-gateway"
+  role             = aws_iam_role.gateway[0].arn
+  runtime          = "python3.12"
+  handler          = "handler.handler"
+  filename         = data.archive_file.gateway[0].output_path
+  source_code_hash = data.archive_file.gateway[0].output_base64sha256
+  memory_size      = 256
+  timeout          = 30
 
-  origin {
-    domain_name              = var.bucket_domain
-    origin_id                = "dashboard-s3"
-    origin_access_control_id = aws_cloudfront_origin_access_control.this[0].id
-  }
-
-  dynamic "origin" {
-    for_each = var.deploy_runtime ? [1] : []
-    content {
-      domain_name = var.api_origin_domain
-      origin_id   = "api-alb"
-
-      custom_header {
-        name  = "X-CloudDetective-Origin"
-        value = var.origin_verify_secret
-      }
-
-      custom_origin_config {
-        http_port              = 80
-        https_port             = 443
-        origin_protocol_policy = "http-only"
-        origin_ssl_protocols   = ["TLSv1.2"]
-      }
+  environment {
+    variables = {
+      FRONTEND_BUCKET = var.bucket_id
+      API_ORIGIN      = var.deploy_runtime ? "http://${var.api_origin_domain}" : ""
+      ORIGIN_SECRET   = var.deploy_runtime ? var.origin_verify_secret : ""
     }
   }
 
-  default_cache_behavior {
-    target_origin_id           = "dashboard-s3"
-    viewer_protocol_policy     = "redirect-to-https"
-    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
-    cached_methods             = ["GET", "HEAD"]
-    compress                   = true
-    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6"
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.security[0].id
+  depends_on = [
+    aws_cloudwatch_log_group.gateway,
+    aws_iam_role_policy_attachment.gateway_logs,
+    aws_iam_role_policy.gateway,
+  ]
+}
 
-    function_association {
-      event_type   = "viewer-request"
-      function_arn = aws_cloudfront_function.spa_rewrite[0].arn
-    }
-  }
+resource "aws_lambda_function_url" "gateway" {
+  count = var.deploy_frontend ? 1 : 0
 
-  dynamic "ordered_cache_behavior" {
-    for_each = var.deploy_runtime ? [1] : []
-    content {
-      path_pattern               = "/api/*"
-      target_origin_id           = "api-alb"
-      viewer_protocol_policy     = "https-only"
-      allowed_methods            = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-      cached_methods             = ["GET", "HEAD", "OPTIONS"]
-      compress                   = true
-      cache_policy_id            = "413f160b-2af4-4fc4-9a5e-e03549dfe081"
-      origin_request_policy_id   = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
-      response_headers_policy_id = aws_cloudfront_response_headers_policy.security[0].id
-    }
-  }
+  function_name      = aws_lambda_function.gateway[0].function_name
+  authorization_type = "NONE"
+}
 
-  restrictions {
-    geo_restriction { restriction_type = "none" }
-  }
+resource "aws_lambda_permission" "function_url" {
+  count = var.deploy_frontend ? 1 : 0
 
-  viewer_certificate { cloudfront_default_certificate = true }
+  statement_id           = "AllowPublicFunctionUrl"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.gateway[0].function_name
+  principal              = "*"
+  function_url_auth_type = "NONE"
+}
+
+resource "aws_lambda_permission" "public_invoke" {
+  count = var.deploy_frontend ? 1 : 0
+
+  statement_id             = "AllowPublicFunctionUrlInvoke"
+  action                   = "lambda:InvokeFunction"
+  function_name            = aws_lambda_function.gateway[0].function_name
+  principal                = "*"
+  invoked_via_function_url = true
 }
 
 data "aws_iam_policy_document" "bucket" {
   count = var.deploy_frontend ? 1 : 0
 
   statement {
-    sid       = "AllowCloudFrontRead"
+    sid       = "AllowFrontendGatewayRead"
     effect    = "Allow"
     actions   = ["s3:GetObject"]
     resources = ["${var.bucket_arn}/*"]
     principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
-    }
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.this[0].arn]
+      type        = "AWS"
+      identifiers = [aws_iam_role.gateway[0].arn]
     }
   }
 

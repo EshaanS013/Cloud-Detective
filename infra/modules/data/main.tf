@@ -31,7 +31,7 @@ data "aws_iam_policy_document" "kms" {
       test     = "ArnEquals"
       variable = "aws:SourceArn"
       values = [
-        "arn:aws:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.name_prefix}"
+        "arn:aws:cloudtrail:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:trail/${var.name_prefix}"
       ]
     }
   }
@@ -74,7 +74,7 @@ data "aws_iam_policy_document" "kms" {
     condition {
       test     = "StringEquals"
       variable = "kms:ViaService"
-      values   = ["sns.${data.aws_region.current.name}.amazonaws.com"]
+      values   = ["sns.${data.aws_region.current.region}.amazonaws.com"]
     }
   }
 
@@ -205,7 +205,7 @@ data "aws_iam_policy_document" "trail" {
       test     = "ArnEquals"
       variable = "aws:SourceArn"
       values = [
-        "arn:aws:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.name_prefix}"
+        "arn:aws:cloudtrail:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:trail/${var.name_prefix}"
       ]
     }
   }
@@ -233,7 +233,7 @@ data "aws_iam_policy_document" "trail" {
       test     = "ArnEquals"
       variable = "aws:SourceArn"
       values = [
-        "arn:aws:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.name_prefix}"
+        "arn:aws:cloudtrail:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:trail/${var.name_prefix}"
       ]
     }
   }
@@ -270,24 +270,25 @@ resource "aws_db_subnet_group" "this" {
 resource "aws_db_instance" "this" {
   count = var.deploy_database ? 1 : 0
 
-  identifier                      = var.name_prefix
-  engine                          = "postgres"
-  engine_version                  = "16"
-  instance_class                  = "db.t4g.micro"
-  allocated_storage               = 20
-  max_allocated_storage           = 50
-  storage_type                    = "gp3"
-  storage_encrypted               = true
-  kms_key_id                      = aws_kms_key.this.arn
-  db_name                         = "cloud_detective"
-  username                        = "cloud_detective"
-  manage_master_user_password     = true
-  master_user_secret_kms_key_id   = aws_kms_key.this.arn
-  db_subnet_group_name            = aws_db_subnet_group.this[0].name
-  vpc_security_group_ids          = [var.database_sg_id]
-  publicly_accessible             = false
-  multi_az                        = false
-  backup_retention_period         = 7
+  identifier                    = var.name_prefix
+  engine                        = "postgres"
+  engine_version                = "16"
+  instance_class                = "db.t4g.micro"
+  allocated_storage             = 20
+  max_allocated_storage         = 50
+  storage_type                  = "gp3"
+  storage_encrypted             = true
+  kms_key_id                    = aws_kms_key.this.arn
+  db_name                       = "cloud_detective"
+  username                      = "cloud_detective"
+  manage_master_user_password   = true
+  master_user_secret_kms_key_id = aws_kms_key.this.arn
+  db_subnet_group_name          = aws_db_subnet_group.this[0].name
+  vpc_security_group_ids        = [var.database_sg_id]
+  publicly_accessible           = false
+  multi_az                      = false
+  # AWS Free plan accounts currently permit one day of automated retention.
+  backup_retention_period         = 1
   deletion_protection             = var.deletion_protection
   skip_final_snapshot             = !var.deletion_protection
   final_snapshot_identifier       = var.deletion_protection ? "${var.name_prefix}-final" : null

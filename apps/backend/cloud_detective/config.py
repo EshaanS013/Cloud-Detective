@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     cognito_app_client_id: str | None = None
     aws_region: str = "ap-southeast-2"
     database_secret_arn: str | None = None
+    database_host: str | None = None
+    database_port: int = 5432
+    database_name: str = "cloud_detective"
     queue_url: str | None = None
     response_queue_url: str | None = None
     poll_wait_seconds: int = 20

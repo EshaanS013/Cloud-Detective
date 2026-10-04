@@ -223,6 +223,9 @@ locals {
   common_environment = [
     { name = "AWS_REGION", value = var.aws_region },
     { name = "DATABASE_SECRET_ARN", value = var.database_secret_arn == null ? "" : var.database_secret_arn },
+    { name = "DATABASE_HOST", value = var.database_address == null ? "" : var.database_address },
+    { name = "DATABASE_PORT", value = var.database_port == null ? "5432" : tostring(var.database_port) },
+    { name = "DATABASE_NAME", value = var.database_name == null ? "cloud_detective" : var.database_name },
     { name = "RESPONSE_MODE", value = var.response_mode },
     { name = "RULES_PATH", value = "/app/rules" },
     { name = "QUEUE_URL", value = var.event_queue_url },

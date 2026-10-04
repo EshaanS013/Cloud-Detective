@@ -18,9 +18,11 @@ def database_url() -> str:
     client = aws_client("secretsmanager")
     response = client.get_secret_value(SecretId=settings.database_secret_arn)
     secret = json.loads(response["SecretString"])
-    host = secret["host"]
-    port = secret.get("port", 5432)
-    database = secret.get("dbname", "cloud_detective")
+    host = secret.get("host") or settings.database_host
+    if not host:
+        raise RuntimeError("DATABASE_HOST is required when the database secret has no host")
+    port = secret.get("port", settings.database_port)
+    database = secret.get("dbname", settings.database_name)
     return URL.create(
         "postgresql+psycopg",
         username=secret["username"],

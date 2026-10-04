@@ -124,7 +124,7 @@ data "aws_iam_policy_document" "collector" {
     condition {
       test     = "StringEquals"
       variable = "kms:ViaService"
-      values   = ["sqs.${data.aws_region.current.name}.amazonaws.com"]
+      values   = ["sqs.${data.aws_region.current.region}.amazonaws.com"]
     }
   }
 }
@@ -142,7 +142,7 @@ data "aws_iam_policy_document" "responder" {
     condition {
       test     = "StringEquals"
       variable = "kms:ViaService"
-      values   = ["sqs.${data.aws_region.current.name}.amazonaws.com"]
+      values   = ["sqs.${data.aws_region.current.region}.amazonaws.com"]
     }
   }
   statement {
@@ -151,7 +151,7 @@ data "aws_iam_policy_document" "responder" {
   }
   statement {
     actions   = ["ec2:StopInstances"]
-    resources = ["arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"]
+    resources = ["arn:aws:ec2:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:instance/*"]
     condition {
       test     = "StringEquals"
       variable = "ec2:ResourceTag/CloudDetectiveSandbox"
@@ -192,7 +192,7 @@ data "aws_iam_policy_document" "responder" {
     condition {
       test     = "StringEquals"
       variable = "kms:ViaService"
-      values   = ["s3.${data.aws_region.current.name}.amazonaws.com"]
+      values   = ["s3.${data.aws_region.current.region}.amazonaws.com"]
     }
   }
 }
