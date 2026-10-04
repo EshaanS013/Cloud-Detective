@@ -31,3 +31,4 @@ variable "api_image" { type = string }
 variable "worker_image" { type = string }
 variable "response_mode" { type = string }
 variable "aws_region" { type = string }
+variable "environment" { type = string }

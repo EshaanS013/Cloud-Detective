@@ -70,6 +70,7 @@ module "compute" {
   worker_image          = var.worker_image
   response_mode         = var.response_mode
   aws_region            = var.aws_region
+  environment           = var.environment
 }
 
 module "frontend" {

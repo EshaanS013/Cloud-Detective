@@ -222,6 +222,7 @@ resource "aws_lb_listener_rule" "cloudfront_api" {
 locals {
   common_environment = [
     { name = "AWS_REGION", value = var.aws_region },
+    { name = "ENVIRONMENT", value = var.environment },
     { name = "DATABASE_SECRET_ARN", value = var.database_secret_arn == null ? "" : var.database_secret_arn },
     { name = "DATABASE_HOST", value = var.database_address == null ? "" : var.database_address },
     { name = "DATABASE_PORT", value = var.database_port == null ? "5432" : tostring(var.database_port) },
