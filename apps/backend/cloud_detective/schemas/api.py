@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, IPvAnyAddress
 
 
 class FindingView(BaseModel):
@@ -16,7 +16,7 @@ class FindingView(BaseModel):
     title: str
     description: str
     principal_arn: str | None
-    source_ip: str | None
+    source_ip: IPvAnyAddress | None
     affected_resources: list[str]
     status: str
     assigned_to: str | None
