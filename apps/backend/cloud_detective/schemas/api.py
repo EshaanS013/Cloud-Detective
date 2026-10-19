@@ -24,6 +24,34 @@ class FindingView(BaseModel):
     created_at: datetime
 
 
+class FindingEvidenceView(BaseModel):
+    event_id: UUID
+    event_time: datetime
+    event_name: str
+    event_source: str
+    aws_region: str
+    principal_arn: str | None
+    source_address: str | None
+    mfa_authenticated: bool | None
+    error_code: str | None
+    simulated: bool
+
+
+class FindingExplanation(BaseModel):
+    finding: FindingView
+    rule_name: str
+    rule_type: str
+    rule_description: str
+    category: str
+    mitre_technique: str | None
+    score_factors: dict[str, float]
+    window_start: datetime
+    window_end: datetime
+    event_count: int
+    evidence: list[FindingEvidenceView]
+    evidence_truncated: bool
+
+
 class EventView(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

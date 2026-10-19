@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from cloud_detective.auth import Principal, require_analyst, require_responder
 from cloud_detective.aws import aws_client
 from cloud_detective.config import get_settings
-from cloud_detective.db.models import Event, Finding, ResponseAction, Rule
+from cloud_detective.db.models import Event, Finding, FindingEvent, ResponseAction, Rule
 from cloud_detective.db.session import get_session
 from cloud_detective.detection.engine import DetectionEngine
 from cloud_detective.detection.loader import load_rules
@@ -18,6 +18,8 @@ from cloud_detective.detection.persistence import persist_event, persist_finding
 from cloud_detective.schemas.api import (
     DashboardSummary,
     EventView,
+    FindingEvidenceView,
+    FindingExplanation,
     FindingUpdate,
     FindingView,
     IngestResult,
@@ -35,6 +37,11 @@ ResponderDep = Annotated[Principal, Depends(require_responder)]
 @lru_cache
 def get_detection_engine() -> DetectionEngine:
     return DetectionEngine(load_rules(get_settings().rules_path))
+
+
+def _is_simulated_event(event: Event) -> bool:
+    additional_data = event.raw.get("additionalEventData")
+    return isinstance(additional_data, dict) and additional_data.get("simulation") is True
 
 
 @router.get("/summary", response_model=DashboardSummary, dependencies=[Depends(require_analyst)])
@@ -85,6 +92,59 @@ def get_finding(finding_id: UUID, session: SessionDep) -> Finding:
     if finding is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Finding not found")
     return finding
+
+
+@router.get(
+    "/findings/{finding_id}/explanation",
+    response_model=FindingExplanation,
+    dependencies=[Depends(require_analyst)],
+)
+def explain_finding(finding_id: UUID, session: SessionDep) -> FindingExplanation:
+    finding = session.get(Finding, finding_id)
+    if finding is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Finding not found")
+    rule = session.get(Rule, finding.rule_id)
+    if rule is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found")
+
+    event_count = session.scalar(
+        select(func.count()).select_from(FindingEvent).where(FindingEvent.finding_id == finding_id)
+    ) or 0
+    events = session.scalars(
+        select(Event)
+        .join(FindingEvent, Event.event_id == FindingEvent.event_id)
+        .where(FindingEvent.finding_id == finding_id)
+        .order_by(Event.event_time, Event.event_id)
+        .limit(50)
+    ).all()
+    return FindingExplanation(
+        finding=FindingView.model_validate(finding),
+        rule_name=rule.name,
+        rule_type=rule.rule_type,
+        rule_description=rule.definition.get("description", ""),
+        category=rule.category,
+        mitre_technique=rule.mitre_technique,
+        score_factors=finding.score_breakdown,
+        window_start=finding.window_start,
+        window_end=finding.window_end,
+        event_count=event_count,
+        evidence=[
+            FindingEvidenceView(
+                event_id=event.event_id,
+                event_time=event.event_time,
+                event_name=event.event_name,
+                event_source=event.event_source,
+                aws_region=event.aws_region,
+                principal_arn=event.principal_arn,
+                source_address=event.source_address,
+                mfa_authenticated=event.mfa_authenticated,
+                error_code=event.error_code,
+                simulated=_is_simulated_event(event),
+            )
+            for event in events
+        ],
+        evidence_truncated=event_count > len(events),
+    )
 
 
 @router.patch("/findings/{finding_id}", response_model=FindingView)
