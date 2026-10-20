@@ -22,6 +22,7 @@ class FindingView(BaseModel):
     assigned_to: str | None
     notes: str | None
     created_at: datetime
+    resolved_at: datetime | None = None
 
 
 class FindingEvidenceView(BaseModel):
@@ -34,6 +35,8 @@ class FindingEvidenceView(BaseModel):
     source_address: str | None
     mfa_authenticated: bool | None
     error_code: str | None
+    error_message: str | None
+    error_explanation: str | None
     simulated: bool
 
 
@@ -50,6 +53,11 @@ class FindingExplanation(BaseModel):
     event_count: int
     evidence: list[FindingEvidenceView]
     evidence_truncated: bool
+    trigger_summary: str
+    trigger_checks: list[str]
+    observed_summary: str
+    investigation_guidance: str
+    limitations: list[str]
 
 
 class EventView(BaseModel):
@@ -78,6 +86,10 @@ class RuleView(BaseModel):
     enabled: bool
     playbook_id: str | None
     mitre_technique: str | None
+    description: str
+    trigger_summary: str
+    trigger_checks: list[str]
+    investigation_guidance: str
 
 
 class FindingUpdate(BaseModel):

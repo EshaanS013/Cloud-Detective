@@ -52,6 +52,7 @@ def test_explanation_links_scoring_rule_and_synthetic_evidence() -> None:
         source_address="192.0.2.10",
         mfa_authenticated=False,
         error_code=None,
+        error_message=None,
         raw={"additionalEventData": {"simulation": True}},
     )
     session = MagicMock()
@@ -73,6 +74,8 @@ def test_explanation_links_scoring_rule_and_synthetic_evidence() -> None:
     assert payload["evidence_truncated"] is False
     assert payload["evidence"][0]["event_id"] == str(event_id)
     assert payload["evidence"][0]["simulated"] is True
+    assert payload["observed_summary"].startswith("1 linked AWS audit event")
+    assert payload["evidence"][0]["error_message"] is None
 
 
 def test_explanation_returns_404_for_missing_finding() -> None:

@@ -1,18 +1,19 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "oidc-client-ts";
 
 import { authEnabled, restoreUser, userManager } from "./auth";
-import { FindingExplanation } from "./FindingExplanation";
+import { FindingExplanation } from "./InvestigationDrawer";
 
 type Health = { status: string; service: string; version: string; environment: string; response_mode: "dry_run" | "enforce" };
 type Summary = { total_events: number; open_findings: number; enabled_rules: number; severity_counts: Record<string, number>; response_mode: string };
 type Finding = { id: string; rule_id: string; severity: string; risk_score: string; title: string; description: string; principal_arn: string | null; status: string; created_at: string };
 type Event = { event_id: string; event_time: string; event_name: string; event_source: string; principal_arn: string | null; source_address: string | null };
-type Rule = { id: string; name: string; category: string; base_score: number; enabled: boolean; mitre_technique: string | null };
+type Rule = { id: string; name: string; category: string; rule_type: string; base_score: number; enabled: boolean; mitre_technique: string | null; description: string; trigger_summary: string; trigger_checks: string[]; investigation_guidance: string };
 type View = "overview" | "findings" | "events" | "rules";
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
+const demoMode = import.meta.env.VITE_DEMO_MODE === "true";
 
 async function api<T>(path: string, token?: string): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {
@@ -27,6 +28,7 @@ function formatTime(value: string): string {
 }
 
 export function App() {
+  const queryClient = useQueryClient();
   const [view, setView] = useState<View>("overview");
   const [selectedFinding, setSelectedFinding] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -77,6 +79,7 @@ export function App() {
 
       <main className="content">
         <header className="topbar"><div><p className="eyebrow">SECURITY OPERATIONS / {view.toUpperCase()}</p><h1>{view}</h1><p className="page-description">{view === "overview" ? "A clear view of activity that needs attention." : view === "findings" ? "Review detections and trace every score to its evidence." : view === "events" ? "Recent normalized control plane activity." : "The rules behind your detections."}</p></div><div className="identity"><span>{user?.profile.email?.toString() ?? "Local developer"}</span>{authEnabled ? <button onClick={() => void userManager.signoutRedirect()}>Sign out</button> : null}</div></header>
+        {demoMode ? <div className="demo-banner" role="note"><strong>Presentation demo</strong><span>Findings and events marked TEST use synthetic CloudTrail records. No simulated security change was performed in AWS.</span></div> : null}
         {summary.isError ? <div className="alert" role="alert">Dashboard data is unavailable. Check the API and database.</div> : null}
 
         {view === "overview" ? <>
@@ -91,15 +94,15 @@ export function App() {
         </> : null}
 
         {view === "findings" ? <section className="panel"><div className="panel__header"><div><p className="label">INVESTIGATIONS</p><h2>All findings <span className="heading-count">{findings.data?.length ?? 0}</span></h2></div></div><div className="filters"><label className="search-field"><span className="sr-only">Search findings</span><span aria-hidden="true">⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search findings or principals" /></label><label><span className="sr-only">Filter by severity</span><select value={severity} onChange={(event) => setSeverity(event.target.value)}><option value="ALL">All severities</option><option value="CRITICAL">Critical</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option><option value="NORMAL">Normal</option></select></label><label><span className="sr-only">Filter by status</span><select value={findingStatus} onChange={(event) => setFindingStatus(event.target.value)}><option value="ALL">All statuses</option><option value="OPEN">Open</option><option value="INVESTIGATING">Investigating</option><option value="RESOLVED">Resolved</option><option value="FALSE_POSITIVE">False positive</option></select></label></div>{findings.isPending ? <div className="state-message" role="status">Loading findings…</div> : findings.isError ? <div className="state-message state-message--error" role="alert">Findings could not be loaded. Please refresh.</div> : <FindingsTable rows={filteredFindings} onInspect={setSelectedFinding} emptyMessage="No findings match these filters." />}</section> : null}
-        {view === "events" ? <section className="panel"><div className="panel__header"><div><p className="label">NORMALIZED AUDIT LOG</p><h2>Recent events</h2></div></div>{events.isPending ? <div className="state-message" role="status">Loading events…</div> : events.isError ? <div className="state-message state-message--error" role="alert">Events could not be loaded. Please refresh.</div> : !events.data?.length ? <div className="empty">No events yet.</div> : <div className="table-wrap"><table><thead><tr><th>Time</th><th>Event</th><th>Service</th><th>Principal</th><th>Origin</th></tr></thead><tbody>{events.data.map((event) => <tr key={event.event_id}><td>{formatTime(event.event_time)}</td><td><strong>{event.event_name}</strong></td><td>{event.event_source}</td><td className="truncate">{event.principal_arn ?? "Unknown"}</td><td>{event.source_address ?? "—"}</td></tr>)}</tbody></table></div>}</section> : null}
-        {view === "rules" ? <section className="panel"><div className="panel__header"><div><p className="label">DETECTION AS CODE</p><h2>Rule catalogue</h2></div></div>{rules.isPending ? <div className="state-message" role="status">Loading rules…</div> : rules.isError ? <div className="state-message state-message--error" role="alert">Rules could not be loaded. Please refresh.</div> : <div className="rule-grid">{(rules.data ?? []).map((rule) => <article key={rule.id}><div><span className={`dot ${rule.enabled ? "dot--ok" : ""}`} /><strong>{rule.name}</strong></div><p>{rule.category} · score {rule.base_score}</p><small>{rule.mitre_technique ?? rule.id}</small></article>)}</div>}</section> : null}
+        {view === "events" ? <section className="panel"><div className="panel__header"><div><p className="label">NORMALIZED AUDIT LOG</p><h2>Recent events</h2></div></div>{events.isPending ? <div className="state-message" role="status">Loading events…</div> : events.isError ? <div className="state-message state-message--error" role="alert">Events could not be loaded. Please refresh.</div> : !events.data?.length ? <div className="empty">No events yet.</div> : <div className="table-wrap"><table><thead><tr><th>Time</th><th>Event</th><th>Service</th><th>Principal</th><th>Origin</th></tr></thead><tbody>{events.data.map((event) => <tr key={event.event_id}><td>{formatTime(event.event_time)}</td><td><strong>{event.event_name}</strong>{demoMode && event.principal_arn?.includes("::000000000000:") ? <span className="test-tag">TEST</span> : null}</td><td>{event.event_source}</td><td className="truncate">{event.principal_arn ?? "Unknown"}</td><td>{event.source_address ?? "—"}</td></tr>)}</tbody></table></div>}</section> : null}
+        {view === "rules" ? <section className="panel"><div className="panel__header"><div><p className="label">DETECTION RULES</p><h2>What the system looks for</h2><p className="panel-intro">Each rule checks incoming AWS audit events. A match creates a finding for a person to review; it does not prove an attack.</p></div></div>{rules.isPending ? <div className="state-message" role="status">Loading rules…</div> : rules.isError ? <div className="state-message state-message--error" role="alert">Rules could not be loaded. Please refresh.</div> : <div className="rule-grid">{(rules.data ?? []).map((rule) => <article key={rule.id} className="rule-card"><div className="rule-card__heading"><span className={`dot ${rule.enabled ? "dot--ok" : ""}`} /><strong>{rule.name}</strong><span className="status-tag">{rule.enabled ? "Active" : "Off"}</span></div><p>{rule.description}</p><small>{rule.category.replaceAll("-", " ")} · {rule.rule_type} · starting risk score {rule.base_score}/100</small><details><summary>How this rule works</summary><p>{rule.trigger_summary}</p><ul>{rule.trigger_checks.map((check) => <li key={check}>{check}</li>)}</ul><p><strong>What to check:</strong> {rule.investigation_guidance}</p><p className="rule-card__caveat">The starting score can change with context such as the identity, resource, time, source and MFA. It is not a probability.</p></details></article>)}</div>}</section> : null}
       </main>
-      {selectedFinding ? <FindingExplanation id={selectedFinding} token={token} apiBase={apiBase} onClose={closeExplanation} /> : null}
+      {selectedFinding ? <FindingExplanation id={selectedFinding} token={token} apiBase={apiBase} onClose={closeExplanation} onUpdated={() => { void queryClient.invalidateQueries({ queryKey: ["summary"] }); void queryClient.invalidateQueries({ queryKey: ["findings"] }); }} /> : null}
     </div>
   );
 }
 
 function FindingsTable({ rows, onInspect, emptyMessage = "No findings yet. The environment is quiet." }: { rows: Finding[]; onInspect: (id: string) => void; emptyMessage?: string }) {
   if (!rows.length) return <div className="empty">{emptyMessage}</div>;
-  return <div className="table-wrap"><table><thead><tr><th>Finding</th><th>Severity</th><th>Risk</th><th>Status</th><th>Detected</th><th><span className="sr-only">Details</span></th></tr></thead><tbody>{rows.map((finding) => <tr key={finding.id}><td><strong>{finding.title}</strong><small>{finding.principal_arn ?? finding.rule_id}</small></td><td><span className={`pill pill--${finding.severity.toLowerCase()}`}>{finding.severity}</span></td><td><span className="risk-score">{finding.risk_score}</span><span className="score-denominator"> / 100</span></td><td>{finding.status.replaceAll("_", " ")}</td><td>{formatTime(finding.created_at)}</td><td><button className="inspect-button" aria-label={`Explain ${finding.title}`} onClick={() => onInspect(finding.id)}>Explain →</button></td></tr>)}</tbody></table></div>;
+  return <div className="table-wrap"><table><thead><tr><th>Finding</th><th>Severity</th><th>Risk</th><th>Status</th><th>Detected</th><th><span className="sr-only">Details</span></th></tr></thead><tbody>{rows.map((finding) => <tr key={finding.id}><td><strong>{finding.title}</strong>{demoMode && finding.principal_arn?.includes("::000000000000:") ? <span className="test-tag">TEST</span> : null}<small>{finding.principal_arn ?? finding.rule_id}</small></td><td><span className={`pill pill--${finding.severity.toLowerCase()}`}>{finding.severity}</span></td><td><span className="risk-score">{finding.risk_score}</span><span className="score-denominator"> / 100</span></td><td>{finding.status.replaceAll("_", " ")}</td><td>{formatTime(finding.created_at)}</td><td><button className="inspect-button" aria-label={`Explain ${finding.title}`} onClick={() => onInspect(finding.id)}>Explain →</button></td></tr>)}</tbody></table></div>;
 }

@@ -15,6 +15,13 @@ from cloud_detective.db.session import get_session
 from cloud_detective.detection.engine import DetectionEngine
 from cloud_detective.detection.loader import load_rules
 from cloud_detective.detection.persistence import persist_event, persist_finding, sync_rule_catalog
+from cloud_detective.explainability import (
+    describe_rule,
+    evidence_limitations,
+    evidence_summary,
+    explain_aws_error,
+    investigation_guidance,
+)
 from cloud_detective.schemas.api import (
     DashboardSummary,
     EventView,
@@ -117,6 +124,7 @@ def explain_finding(finding_id: UUID, session: SessionDep) -> FindingExplanation
         .order_by(Event.event_time, Event.event_id)
         .limit(50)
     ).all()
+    trigger_summary, trigger_checks = describe_rule(rule.definition)
     return FindingExplanation(
         finding=FindingView.model_validate(finding),
         rule_name=rule.name,
@@ -139,11 +147,18 @@ def explain_finding(finding_id: UUID, session: SessionDep) -> FindingExplanation
                 source_address=event.source_address,
                 mfa_authenticated=event.mfa_authenticated,
                 error_code=event.error_code,
+                error_message=event.error_message[:500] if event.error_message else None,
+                error_explanation=explain_aws_error(event.error_code),
                 simulated=_is_simulated_event(event),
             )
             for event in events
         ],
         evidence_truncated=event_count > len(events),
+        trigger_summary=trigger_summary,
+        trigger_checks=trigger_checks,
+        observed_summary=evidence_summary(events, event_count),
+        investigation_guidance=investigation_guidance(rule.category),
+        limitations=evidence_limitations(rule.rule_type, event_count > len(events)),
     )
 
 
@@ -152,14 +167,23 @@ def update_finding(
     finding_id: UUID,
     update: FindingUpdate,
     session: SessionDep,
-    _: ResponderDep,
+    principal: ResponderDep,
 ) -> Finding:
     finding = session.get(Finding, finding_id)
     if finding is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Finding not found")
+    if update.status == "RESOLVED" and not (update.notes or "").strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="A resolution note is required before closing a finding",
+        )
     finding.status = update.status
-    finding.assigned_to = update.assigned_to
-    finding.notes = update.notes
+    if "assigned_to" in update.model_fields_set:
+        finding.assigned_to = update.assigned_to
+    elif update.status in {"INVESTIGATING", "RESOLVED"} and not finding.assigned_to:
+        finding.assigned_to = principal.username
+    if "notes" in update.model_fields_set:
+        finding.notes = update.notes.strip() if update.notes else None
     finding.resolved_at = datetime.now(UTC) if update.status == "RESOLVED" else None
     session.commit()
     session.refresh(finding)
@@ -178,8 +202,28 @@ def list_events(
 
 
 @router.get("/rules", response_model=list[RuleView], dependencies=[Depends(require_analyst)])
-def list_rules(session: SessionDep) -> list[Rule]:
-    return list(session.scalars(select(Rule).order_by(Rule.category, Rule.name)))
+def list_rules(session: SessionDep) -> list[RuleView]:
+    rules = session.scalars(select(Rule).order_by(Rule.category, Rule.name))
+    result = []
+    for rule in rules:
+        trigger_summary, trigger_checks = describe_rule(rule.definition)
+        result.append(
+            RuleView(
+                id=rule.id,
+                name=rule.name,
+                rule_type=rule.rule_type,
+                category=rule.category,
+                base_score=rule.base_score,
+                enabled=rule.enabled,
+                playbook_id=rule.playbook_id,
+                mitre_technique=rule.mitre_technique,
+                description=rule.definition.get("description", ""),
+                trigger_summary=trigger_summary,
+                trigger_checks=trigger_checks,
+                investigation_guidance=investigation_guidance(rule.category),
+            )
+        )
+    return result
 
 
 @router.post("/events/ingest", response_model=IngestResult, status_code=status.HTTP_202_ACCEPTED)
