@@ -1,0 +1,9 @@
+variable "name_prefix" { type = string }
+variable "aws_region" { type = string }
+variable "collector_function_name" { type = string }
+variable "responder_function_name" { type = string }
+variable "event_dlq_name" { type = string }
+variable "response_dlq_name" { type = string }
+variable "alert_topic_arn" { type = string }
+variable "api_log_group_name" { type = string }
+variable "worker_log_group_name" { type = string }

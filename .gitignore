@@ -9,6 +9,8 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+!infra/modules/build/
+!infra/modules/build/*.tf
 develop-eggs/
 dist/
 downloads/
@@ -43,7 +45,8 @@ vite.config.d.ts
 *.tfstate
 *.tfstate.*
 *.tfplan
-.terraform.lock.hcl
+terraform.tfvars
+*.zip
 
 # PyInstaller
 #   Usually these files are written by a python script from a template

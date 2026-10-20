@@ -3,12 +3,14 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from cloud_detective.config import get_settings
 from cloud_detective.db import models  # noqa: F401
 from cloud_detective.db.base import Base
+from cloud_detective.db.session import database_url
 
 config = context.config
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+# Alembic's ConfigParser treats percent signs in URL-encoded passwords as
+# interpolation markers, so escape them before setting the runtime URL.
+config.set_main_option("sqlalchemy.url", database_url().replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

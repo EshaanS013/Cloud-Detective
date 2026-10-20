@@ -1,0 +1,9 @@
+output "event_queue_url" { value = aws_sqs_queue.events.id }
+output "event_queue_arn" { value = aws_sqs_queue.events.arn }
+output "response_queue_url" { value = aws_sqs_queue.responses.id }
+output "response_queue_arn" { value = aws_sqs_queue.responses.arn }
+output "alert_topic_arn" { value = aws_sns_topic.alerts.arn }
+output "collector_function_name" { value = aws_lambda_function.collector.function_name }
+output "responder_function_name" { value = aws_lambda_function.responder.function_name }
+output "event_dlq_name" { value = aws_sqs_queue.events_dlq.name }
+output "response_dlq_name" { value = aws_sqs_queue.responses_dlq.name }

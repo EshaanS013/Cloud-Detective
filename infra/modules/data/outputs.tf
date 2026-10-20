@@ -1,0 +1,13 @@
+output "kms_key_arn" { value = aws_kms_key.this.arn }
+output "trail_bucket_id" { value = aws_s3_bucket.this["trail"].id }
+output "trail_bucket_arn" { value = aws_s3_bucket.this["trail"].arn }
+output "evidence_bucket_id" { value = aws_s3_bucket.this["evidence"].id }
+output "evidence_bucket_arn" { value = aws_s3_bucket.this["evidence"].arn }
+output "frontend_bucket_id" { value = aws_s3_bucket.this["frontend"].id }
+output "frontend_bucket_arn" { value = aws_s3_bucket.this["frontend"].arn }
+output "frontend_bucket_domain" { value = aws_s3_bucket.this["frontend"].bucket_regional_domain_name }
+output "database_endpoint" { value = try(aws_db_instance.this[0].endpoint, null) }
+output "database_address" { value = try(aws_db_instance.this[0].address, null) }
+output "database_port" { value = try(aws_db_instance.this[0].port, null) }
+output "database_name" { value = try(aws_db_instance.this[0].db_name, null) }
+output "database_secret_arn" { value = try(aws_db_instance.this[0].master_user_secret[0].secret_arn, null) }

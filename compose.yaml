@@ -33,7 +33,32 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: uvicorn cloud_detective.main:app --host 0.0.0.0 --port 8000 --reload
+    command: sh -c "alembic upgrade head && uvicorn cloud_detective.main:app --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    profiles: ["aws"]
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://cloud_detective:cloud_detective_local@postgres:5432/cloud_detective}
+      AWS_REGION: ${AWS_REGION:-ap-southeast-2}
+      AWS_PROFILE: ${AWS_PROFILE:-cloud-detective}
+      QUEUE_URL: ${QUEUE_URL:-}
+      RULES_PATH: /app/rules
+    volumes:
+      - ./apps/backend:/app
+      - ./rules:/app/rules:ro
+      - ${USERPROFILE}/.aws:/home/app/.aws:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    command: python -m cloud_detective.worker
 
   web:
     build:
@@ -46,7 +71,8 @@ services:
       - ./apps/web:/app
       - web-node-modules:/app/node_modules
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     command: npm run dev -- --host 0.0.0.0
 
 volumes:

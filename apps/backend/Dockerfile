@@ -1,11 +1,11 @@
-FROM python:3.12-slim AS runtime
+FROM python:3.12-alpine AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-RUN addgroup --system app && adduser --system --ingroup app app
+RUN addgroup -S app && adduser -S -G app app
 
 COPY apps/backend/pyproject.toml ./
 COPY apps/backend/cloud_detective ./cloud_detective
@@ -19,4 +19,4 @@ USER app
 
 EXPOSE 8000
 
-CMD ["uvicorn", "cloud_detective.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn cloud_detective.main:app --host 0.0.0.0 --port 8000"]

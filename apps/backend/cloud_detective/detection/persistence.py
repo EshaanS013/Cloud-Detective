@@ -56,6 +56,9 @@ def persist_finding(session: Session, candidate: FindingCandidate) -> UUID | Non
             score_breakdown=candidate.risk.factors,
             title=candidate.title,
             description=candidate.description,
+            principal_arn=candidate.principal_arn,
+            source_ip=candidate.source_ip,
+            affected_resources=candidate.affected_resources,
             window_start=candidate.window_start,
             window_end=candidate.window_end,
         )

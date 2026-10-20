@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from cloud_detective import __version__
+from cloud_detective.api import router
 from cloud_detective.config import get_settings
 
 settings = get_settings()
@@ -15,9 +16,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=False,
-    allow_methods=["GET"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+app.include_router(router)
 
 
 @app.get("/api/v1/health", tags=["system"])
@@ -29,3 +31,8 @@ def health() -> dict[str, str]:
         "environment": settings.environment,
         "response_mode": settings.response_mode,
     }
+
+
+@app.get("/health", include_in_schema=False)
+def load_balancer_health() -> dict[str, str]:
+    return {"status": "ok"}

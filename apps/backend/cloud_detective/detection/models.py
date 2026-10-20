@@ -89,6 +89,9 @@ class FindingCandidate(BaseModel):
     event_ids: list[UUID]
     risk: RiskAssessment
     dedupe_key: str
+    principal_arn: str | None = None
+    source_ip: str | None = None
+    affected_resources: list[str] = Field(default_factory=list)
     playbook_id: str | None = None
     mitre_technique: str | None = None
 
