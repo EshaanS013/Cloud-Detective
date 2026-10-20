@@ -20,6 +20,24 @@ The source specification says “18 rules,” but its catalogue enumerates 21. T
 
 An Analyst can open a finding and inspect its detection rule, stored risk factors, principal and resource context, evidence window, and linked CloudTrail events. The explanation endpoint is `GET /api/v1/findings/{finding_id}/explanation`; it returns the first 50 linked events and an `evidence_truncated` flag when more exist. Synthetic test events are labelled in the dashboard.
 
+## Presentation casebook
+
+`python -m cloud_detective.presentation_scenarios` (from `apps/backend`) emits 50 deterministic, CloudTrail-shaped JSON records across nine stories. They are **realistic synthetic examples**, not actual incidents; they use the non-existent account `000000000000`, documentation IP ranges, and `additionalEventData.simulation=true`. Feeding them to the development event queue runs the normal detector without changing any AWS resources. Replaying the same output is duplicate-safe.
+
+| Case | Search for this principal in Findings | What to explain |
+| --- | --- | --- |
+| CD-DEMO-101 | `demo-analyst-101` | Five failed sign-ins, then a login without MFA |
+| CD-DEMO-102 | `demo-operator-102` | New user/key, administrator attachment, wildcard policy and trust changes |
+| CD-DEMO-103 | `demo-storage-admin-103` | Public S3 policy/ACL, access-block removal and encryption removal |
+| CD-DEMO-104 | `demo-audit-operator-104` | Logging stop and KMS deletion scheduling |
+| CD-DEMO-105 | `demo-platform-operator-105` | Public RDS change and CPU alarm |
+| CD-DEMO-106 | `demo-prober-106` | Fifteen denied IAM calls from one identity |
+| CD-DEMO-107 | `demo-target-107` | Failed sign-ins from ten source addresses |
+| CD-DEMO-108 | `:root` | Root identity activity |
+| CD-DEMO-109 | Events view: `demo-routine-user-109` | Read-only activity with no expected finding |
+
+Some actions are deliberately independent findings even when they belong to one case story. Use **Explain** to inspect the linked trigger events and the rule's exact condition. Detection does not establish malicious intent, and resolving a case does not change AWS resources.
+
 ## Local development
 
 Prerequisites: Docker Desktop, Python 3.12+, Node.js 20+, and Terraform 1.10+.
