@@ -100,3 +100,19 @@ def test_tolerates_malformed_nested_identity_and_text_fields() -> None:
     assert event.user_agent == "{'unexpected': 'object'}"
     assert event.error_code == "403"
     assert event.read_only is False
+
+
+def test_s3_bucket_is_derived_when_cloudtrail_omits_resources() -> None:
+    payload = load_fixture("iam_user_event.json")
+    payload["detail"].update(
+        {
+            "eventSource": "s3.amazonaws.com",
+            "eventName": "DeletePublicAccessBlock",
+            "requestParameters": {"bucketName": "cloud-detective-demo-bucket"},
+            "resources": [],
+        }
+    )
+
+    event = normalize_cloudtrail_event(payload)
+
+    assert event.resources == ["arn:aws:s3:::cloud-detective-demo-bucket"]

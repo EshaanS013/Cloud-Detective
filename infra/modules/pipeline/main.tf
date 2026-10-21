@@ -1,6 +1,31 @@
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
+resource "aws_s3_bucket" "live_demo" {
+  bucket = "${var.name_prefix}-${data.aws_caller_identity.current.account_id}-live-demo"
+  tags = {
+    CloudDetectiveSandbox = "true"
+    Purpose               = "CloudDetectiveLiveDemo"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "live_demo" {
+  bucket                  = aws_s3_bucket.live_demo.id
+  block_public_acls       = true
+  ignore_public_acls      = true
+  block_public_policy     = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "live_demo" {
+  bucket = aws_s3_bucket.live_demo.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
 resource "aws_sqs_queue" "events_dlq" {
   name                      = "${var.name_prefix}-events-dlq"
   message_retention_seconds = 1209600
@@ -169,12 +194,7 @@ data "aws_iam_policy_document" "responder" {
   }
   statement {
     actions   = ["s3:GetBucketTagging", "s3:PutBucketPublicAccessBlock"]
-    resources = ["arn:aws:s3:::*"]
-    condition {
-      test     = "StringEquals"
-      variable = "s3:ResourceTag/CloudDetectiveSandbox"
-      values   = ["true"]
-    }
+    resources = [aws_s3_bucket.live_demo.arn]
   }
   statement {
     actions = [

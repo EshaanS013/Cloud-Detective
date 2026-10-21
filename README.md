@@ -93,13 +93,24 @@ All billable runtime switches default to `false`. Review the Terraform plan befo
 1. Copy `infra/terraform.tfvars.example` to `infra/terraform.tfvars`.
 2. Apply the base plan to create networking, security, event pipeline, Cognito, ECR, and storage.
 3. Upload the repository source archive to the build source key, set `deploy_builder=true` with an immutable image tag, and apply. The no-ingress EC2 builder publishes both images, records an encrypted status/log in S3, and shuts down; set `deploy_builder=false` immediately afterward to remove it.
-4. Set `deploy_database=true`, `deploy_runtime=true`, `deploy_frontend=true`, and the image URIs, then apply. CloudFront provides HTTPS for both the dashboard and `/api/*`; the load balancer accepts only verified CloudFront origin traffic.
+4. Set `deploy_database=true`, `deploy_runtime=true`, `deploy_frontend=true`, and the image URIs, then apply. The Lambda Function URL serves the dashboard and proxies `/api/*` to the load balancer.
 5. Build the dashboard with the Terraform Cognito outputs and `VITE_API_BASE_URL=/api/v1`, then upload `apps/web/dist` to the frontend bucket.
 6. Update the Cognito callback and logout URLs to the deployed dashboard URL and apply once more.
 7. Create the first Cognito team member and add them to `Responder`; all other investigators can use `Analyst`.
 8. Keep `response_mode="dry_run"` until sandbox simulations pass. Enforcement also requires the target resource tag `CloudDetectiveSandbox=true`.
 
 The new AWS experience does not allow the cross-Region EventBridge forwarder described in the original specification. This build intentionally monitors the selected Region only and uses a single-Region CloudTrail.
+
+## Live two-way S3 demonstration
+
+The deployment creates one empty bucket named by the `live_demo_bucket_name` Terraform output. It is tagged `CloudDetectiveSandbox=true` and starts with all four bucket-level S3 Block Public Access settings on. The responder IAM policy is limited to this one bucket; response mode must also be `enforce`, and the signed-in user must belong to the Cognito `Responder` group.
+
+1. In the AWS S3 Console for `ap-southeast-2`, open the demo bucket's **Permissions** tab and turn off its bucket-level Block Public Access settings. Do not add a public bucket policy or upload any objects. This configuration change is the test event; the empty bucket is not itself a public data leak.
+2. CloudTrail records `DeletePublicAccessBlock` or `PutPublicAccessBlock`. EventBridge forwards the write event to the collector, the worker evaluates rule `s3-public-access-block-removed`, and a finding appears in Cloud Detective. AWS delivery can take time; the app checks for new events and findings every 10 seconds after delivery.
+3. Open the new finding, inspect its linked AWS event and affected bucket, then choose **Restore S3 protection in AWS**. Confirm the live change. The action is queued to SQS; the responder verifies the sandbox tag and writes all four Block Public Access settings as `true`.
+4. Refresh the bucket's **Permissions** tab in the AWS Console to verify all four settings are on again. The responder also writes an audit record to the evidence bucket under `responses/`.
+
+The investigation status and resolution note are case-management actions only; they never modify AWS. Only supported, explicitly wired AWS API events become findings. This is not a bidirectional mirror of every AWS Console action. The empty S3 bucket incurs request and storage charges according to [Amazon S3 pricing](https://aws.amazon.com/s3/pricing/), and the existing ingestion/runtime services have their own usage charges.
 
 ## Safety boundary
 

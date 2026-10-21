@@ -13,7 +13,7 @@ function response(data: unknown, ok = true) {
   return Promise.resolve({ ok, status: ok ? 200 : 503, json: async () => data });
 }
 
-function stubApi(healthy = true, ruleId = "cloudtrail-tampering") {
+function stubApi(healthy = true, ruleId = "cloudtrail-tampering", responseMode = "dry_run") {
   let caseStatus = "OPEN";
   let caseNotes: string | null = null;
   vi.stubGlobal("fetch", vi.fn((input: string | URL | Request, init?: RequestInit) => {
@@ -24,9 +24,9 @@ function stubApi(healthy = true, ruleId = "cloudtrail-tampering") {
       if (update.notes) caseNotes = update.notes;
       return response({ status: caseStatus, notes: caseNotes, assigned_to: "local-developer" });
     }
-    if (init?.method === "POST" && url.includes("/responses")) return response({ outcome: "SIMULATED" });
-    if (url.includes("/health")) return response({ status: "ok", service: "cloud-detective-api", version: "0.1.0", environment: "local", response_mode: "dry_run" }, healthy);
-    if (url.includes("/summary")) return response({ total_events: 42, open_findings: 2, enabled_rules: 21, severity_counts: { CRITICAL: 1 }, response_mode: "dry_run" }, healthy);
+    if (init?.method === "POST" && url.includes("/responses")) return response({ outcome: String(init.body).includes("ENFORCE") ? "QUEUED" : "SIMULATED" });
+    if (url.includes("/health")) return response({ status: "ok", service: "cloud-detective-api", version: "0.1.0", environment: "local", response_mode: responseMode }, healthy);
+    if (url.includes("/summary")) return response({ total_events: 42, open_findings: 2, enabled_rules: 21, severity_counts: { CRITICAL: 1 }, response_mode: responseMode }, healthy);
     if (url.includes("/explanation")) return response({
       finding: { rule_id: ruleId, title: "CloudTrail tampering", severity: "CRITICAL", risk_score: "92", status: caseStatus, description: "Logging changed", principal_arn: "arn:aws:iam::123:user/test", source_ip: "192.0.2.10", affected_resources: ruleId.startsWith("s3-public") ? ["arn:aws:s3:::presentation-example"] : [], assigned_to: caseStatus === "OPEN" ? null : "local-developer", notes: caseNotes, resolved_at: caseStatus === "RESOLVED" ? "2026-09-27T11:00:00Z" : null },
       rule_name: "CloudTrail tampering", rule_type: "signature", rule_description: "Detect attempts to stop logging.", category: "logging", mitre_technique: "T1562.008",
@@ -137,15 +137,30 @@ describe("App", () => {
     expect(screen.getByText(/match creates a finding/)).toBeInTheDocument();
   });
 
-  it("offers only a dry-run response for an S3 finding", async () => {
-    stubApi(true, "s3-public-policy");
+  it("offers only a dry-run response when enforcement is disabled", async () => {
+    stubApi(true, "s3-public-access-block-removed");
     renderApp();
     fireEvent.click(await screen.findByRole("button", { name: "Explain CloudTrail tampering" }));
     fireEvent.click(await screen.findByRole("button", { name: "Preview S3 response (dry run)" }));
+    expect(screen.queryByRole("button", { name: "Restore S3 protection in AWS" })).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByText("Dry-run response recorded. No AWS resource was changed.")).toBeInTheDocument());
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("/responses"),
       expect.objectContaining({ method: "POST", body: expect.stringContaining('"confirmation":"DRY_RUN"') }),
+    );
+  });
+
+  it("offers a confirmed live response when enforcement is enabled", async () => {
+    stubApi(true, "s3-public-access-block-removed", "enforce");
+    vi.stubGlobal("confirm", vi.fn(() => true));
+    renderApp();
+    fireEvent.click(await screen.findByRole("button", { name: "Explain CloudTrail tampering" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Restore S3 protection in AWS" }));
+    await waitFor(() => expect(screen.getByText(/Live S3 response queued/)).toBeInTheDocument());
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("presentation-example"));
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/responses"),
+      expect.objectContaining({ method: "POST", body: expect.stringContaining('"confirmation":"ENFORCE"') }),
     );
   });
 });

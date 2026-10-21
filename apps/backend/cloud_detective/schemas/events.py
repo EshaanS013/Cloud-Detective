@@ -130,6 +130,15 @@ def _resource_arns(resources: Any) -> list[str]:
     return arns
 
 
+def _s3_bucket_resource(event_source: str, request_params: dict[str, Any]) -> str | None:
+    if event_source != "s3.amazonaws.com":
+        return None
+    bucket = request_params.get("bucketName") or request_params.get("bucket")
+    if not isinstance(bucket, str) or not bucket or "/" in bucket or ":" in bucket:
+        return None
+    return f"arn:aws:s3:::{bucket}"
+
+
 def _parse_mfa(identity: dict[str, Any]) -> bool | None:
     session_context = _as_dict(identity.get("sessionContext"))
     attributes = _as_dict(session_context.get("attributes"))
@@ -179,6 +188,11 @@ def normalize_cloudtrail_event(event: dict[str, Any]) -> CanonicalEvent:
     if event_source == "unknown":
         warnings.append("missing eventSource")
 
+    resources = _resource_arns(detail.get("resources"))
+    bucket_arn = _s3_bucket_resource(event_source, request_params)
+    if bucket_arn and bucket_arn not in resources:
+        resources.append(bucket_arn)
+
     return CanonicalEvent(
         event_id=event_id,
         event_time=_parse_time(detail.get("eventTime") or event.get("time"), warnings),
@@ -192,7 +206,7 @@ def normalize_cloudtrail_event(event: dict[str, Any]) -> CanonicalEvent:
         source_ip=source_ip,
         source_kind=source_kind,
         user_agent=_optional_text(detail.get("userAgent")),
-        resources=_resource_arns(detail.get("resources")),
+        resources=resources,
         request_params=request_params,
         error_code=_optional_text(detail.get("errorCode")),
         error_message=_optional_text(detail.get("errorMessage")),

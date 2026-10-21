@@ -71,3 +71,6 @@ output "container_build_status_key" {
 output "container_build_log_key" {
   value = module.build.log_key
 }
+output "live_demo_bucket_name" {
+  value = module.pipeline.live_demo_bucket_name
+}

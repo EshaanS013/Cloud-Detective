@@ -56,7 +56,7 @@ def _is_sandbox_target(service: str, resource: str) -> bool:
 def _execute(playbook_id: str, service: str, resource: str) -> dict[str, Any]:
     if playbook_id == "stop-ec2-instance" and service == "ec2":
         return EC2.stop_instances(InstanceIds=[resource.split("/", 1)[1]])
-    if playbook_id == "block-s3-public-access" and service == "s3":
+    if playbook_id == "block-public-s3" and service == "s3" and "/" not in resource:
         return S3.put_public_access_block(
             Bucket=resource,
             PublicAccessBlockConfiguration={

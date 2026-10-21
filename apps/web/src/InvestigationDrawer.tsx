@@ -14,7 +14,7 @@ function formatTime(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
-export function FindingExplanation({ id, token, apiBase, onClose, onUpdated }: { id: string; token?: string; apiBase: string; onClose: () => void; onUpdated?: () => void }) {
+export function FindingExplanation({ id, token, apiBase, responseMode, onClose, onUpdated }: { id: string; token?: string; apiBase: string; responseMode: string; onClose: () => void; onUpdated?: () => void }) {
   const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const queryClient = useQueryClient();
@@ -83,19 +83,23 @@ export function FindingExplanation({ id, token, apiBase, onClose, onUpdated }: {
     }
   }
 
-  async function previewResponse(targetArn: string) {
+  async function runS3Response(targetArn: string, enforce: boolean) {
+    if (enforce && !window.confirm(`Restore all four S3 Block Public Access settings on ${targetArn}? This changes the live AWS bucket.`)) return;
     setWorking(true);
     setActionMessage("");
     try {
       const response = await fetch(`${apiBase}/findings/${id}/responses`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ playbook_id: "block-public-s3", target_arn: targetArn, confirmation: "DRY_RUN" }),
+        body: JSON.stringify({ playbook_id: "block-public-s3", target_arn: targetArn, confirmation: enforce ? "ENFORCE" : "DRY_RUN" }),
       });
-      if (!response.ok) throw new Error(`Preview failed: ${response.status}`);
-      setActionMessage("Dry-run response recorded. No AWS resource was changed.");
+      if (response.status === 403) { setActionMessage("Only a Responder can run this action. Ask the project owner for Responder access."); return; }
+      if (response.status === 409) { setActionMessage("Live responses are disabled in this deployment."); return; }
+      if (!response.ok) throw new Error(`Response failed: ${response.status}`);
+      const result = await response.json() as { outcome: string };
+      setActionMessage(enforce ? `Live S3 response ${result.outcome.toLowerCase()}. Refresh the bucket's Permissions tab in AWS to verify Block Public Access.` : "Dry-run response recorded. No AWS resource was changed.");
     } catch {
-      setActionMessage("Response preview failed. Please try again.");
+      setActionMessage("Response could not be submitted. Please try again.");
     } finally {
       setWorking(false);
     }
@@ -116,7 +120,7 @@ export function FindingExplanation({ id, token, apiBase, onClose, onUpdated }: {
 
         <section className="detail-section"><p className="label">AWS ERRORS AND LINKED EVIDENCE · {data.event_count} EVENT{data.event_count === 1 ? "" : "S"}</p>{data.evidence.length ? <ol className="evidence-list">{data.evidence.map((event) => <li key={event.event_id}><div><strong>{event.event_name}</strong>{event.simulated ? <span className="test-tag">TEST</span> : null}</div><p>{event.event_source} · {event.aws_region} · {formatTime(event.event_time)}</p><small>Source {event.source_address ?? "unknown"} · MFA {event.mfa_authenticated === null ? "not recorded" : event.mfa_authenticated ? "used" : "not used"}</small>{event.error_code || event.error_message ? <div className="evidence-error"><strong>Recorded AWS error: {event.error_code ?? "No error code"}</strong><p>{event.error_message ?? "CloudTrail did not include an error message."}</p>{event.error_explanation ? <p><strong>What it means:</strong> {event.error_explanation}</p> : null}<small>The audit record reports this error; its underlying cause still needs investigation.</small></div> : <p className="evidence-ok">No AWS API error was recorded for this event.</p>}</li>)}</ol> : <p>No linked events are available.</p>}{data.evidence_truncated ? <p className="evidence-note">Showing the first 50 linked events.</p> : null}</section>
 
-        <section className="detail-section"><p className="label">INVESTIGATION WORKSPACE</p><p><strong>What to check next:</strong> {data.investigation_guidance}</p><div className="metadata-grid"><div><span>Case status</span><strong>{data.finding.status.replaceAll("_", " ")}</strong></div><div><span>Assigned investigator</span><strong>{data.finding.assigned_to ?? "Not assigned yet"}</strong></div></div>{data.finding.notes ? <div className="case-note"><strong>Recorded investigation / resolution note</strong><p>{data.finding.notes}</p></div> : null}{data.finding.resolved_at ? <p className="case-closed">Closed {formatTime(data.finding.resolved_at)}. Closing a case does not change an AWS resource.</p> : null}<label className="note-field" htmlFor="case-note">Investigation or resolution note</label><textarea id="case-note" value={draftNote} onChange={(event) => setDraftNote(event.target.value)} maxLength={4000} placeholder="What did you check? What did you find? Why is this safe to close?" /><div className="investigation-actions__buttons"><button disabled={working || data.finding.status === "RESOLVED"} onClick={() => void saveStatus("INVESTIGATING")}>Start investigation / save note</button><button disabled={working || data.finding.status === "RESOLVED"} onClick={() => void saveStatus("RESOLVED")}>Resolve finding</button>{data.finding.rule_id.startsWith("s3-public") && data.finding.affected_resources[0] ? <button disabled={working} onClick={() => void previewResponse(data.finding.affected_resources[0])}>Preview S3 response (dry run)</button> : null}</div><p className="workflow-help">Starting assigns this case to you. Resolving requires a note and closes the case record; it does not fix or change AWS resources.</p>{actionMessage ? <p className="action-message" role="status">{actionMessage}</p> : null}</section>
+        <section className="detail-section"><p className="label">INVESTIGATION WORKSPACE</p><p><strong>What to check next:</strong> {data.investigation_guidance}</p><div className="metadata-grid"><div><span>Case status</span><strong>{data.finding.status.replaceAll("_", " ")}</strong></div><div><span>Assigned investigator</span><strong>{data.finding.assigned_to ?? "Not assigned yet"}</strong></div></div>{data.finding.notes ? <div className="case-note"><strong>Recorded investigation / resolution note</strong><p>{data.finding.notes}</p></div> : null}{data.finding.resolved_at ? <p className="case-closed">Closed {formatTime(data.finding.resolved_at)}. Closing a case does not change an AWS resource.</p> : null}<label className="note-field" htmlFor="case-note">Investigation or resolution note</label><textarea id="case-note" value={draftNote} onChange={(event) => setDraftNote(event.target.value)} maxLength={4000} placeholder="What did you check? What did you find? Why is this safe to close?" /><div className="investigation-actions__buttons"><button disabled={working || data.finding.status === "RESOLVED"} onClick={() => void saveStatus("INVESTIGATING")}>Start investigation / save note</button><button disabled={working || data.finding.status === "RESOLVED"} onClick={() => void saveStatus("RESOLVED")}>Resolve finding</button>{data.finding.rule_id === "s3-public-access-block-removed" && data.finding.affected_resources[0] ? <><button disabled={working} onClick={() => void runS3Response(data.finding.affected_resources[0], false)}>Preview S3 response (dry run)</button>{responseMode === "enforce" ? <button disabled={working} onClick={() => void runS3Response(data.finding.affected_resources[0], true)}>Restore S3 protection in AWS</button> : null}</> : null}</div><p className="workflow-help">Starting assigns this case to you. Resolving closes the case record only. Restoring S3 protection is a separate live action available for tagged demo buckets.</p>{actionMessage ? <p className="action-message" role="status">{actionMessage}</p> : null}</section>
 
         <section className="detail-section"><p className="label">RISK SCORE, NOT CERTAINTY</p><p>The starting score is multiplied by the context factors below and capped at 100. This is a triage estimate, not the probability of an attack.</p><div className="score-formula"><span>Base {data.score_factors.base ?? "—"}</span>{Object.entries(data.score_factors).filter(([key]) => key !== "base").map(([key, value]) => <span key={key}>× {value} {factorLabels[key] ?? key}</span>)}<strong>= {data.finding.risk_score} / 100</strong></div></section>
         <section className="detail-section"><p className="label">WHO AND WHAT</p><div className="metadata-grid"><div><span>Identity</span><strong className="breakable">{data.finding.principal_arn ?? "Unknown"}</strong></div><div><span>Source IP</span><strong>{data.finding.source_ip ?? "Unknown"}</strong></div></div>{data.finding.affected_resources.length ? <div className="resources"><span>Related resources</span>{data.finding.affected_resources.map((resource) => <code key={resource}>{resource}</code>)}</div> : null}</section>

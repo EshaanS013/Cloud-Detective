@@ -7,3 +7,4 @@ output "collector_function_name" { value = aws_lambda_function.collector.functio
 output "responder_function_name" { value = aws_lambda_function.responder.function_name }
 output "event_dlq_name" { value = aws_sqs_queue.events_dlq.name }
 output "response_dlq_name" { value = aws_sqs_queue.responses_dlq.name }
+output "live_demo_bucket_name" { value = aws_s3_bucket.live_demo.bucket }

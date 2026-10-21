@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Annotated, Any
@@ -271,8 +272,32 @@ def run_response(
             status_code=status.HTTP_409_CONFLICT,
             detail="Live response is disabled; use DRY_RUN or enable response mode explicitly",
         )
+    if requested_enforcement and not settings.response_queue_url:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Response queue is not configured",
+        )
 
-    idempotency_key = f"{finding_id}:{request.playbook_id}:{request.target_arn}"
+    if (
+        finding.rule_id != "s3-public-access-block-removed"
+        or request.playbook_id != "block-public-s3"
+        or request.target_arn not in finding.affected_resources
+        or not request.target_arn.startswith("arn:aws:s3:::")
+        or "/" in request.target_arn.removeprefix("arn:aws:s3:::")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "This response is available only for the affected S3 bucket "
+                "in a public-access-block finding"
+            ),
+        )
+
+    action_identity = (
+        f"{finding_id}:{request.playbook_id}:{request.target_arn}:"
+        f"{request.confirmation}"
+    )
+    idempotency_key = hashlib.sha256(action_identity.encode()).hexdigest()
     existing = session.scalar(
         select(ResponseAction).where(ResponseAction.idempotency_key == idempotency_key)
     )
@@ -301,11 +326,6 @@ def run_response(
     session.refresh(action)
 
     if requested_enforcement:
-        if not settings.response_queue_url:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Response queue is not configured",
-            )
         import json
 
         aws_client("sqs").send_message(

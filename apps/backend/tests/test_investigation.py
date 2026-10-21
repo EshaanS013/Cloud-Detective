@@ -119,3 +119,26 @@ def test_resolution_requires_note_and_records_closure() -> None:
     assert saved.json()["notes"] == "Confirmed approved exercise."
     assert saved.json()["resolved_at"] is not None
     session.commit.assert_called_once()
+
+
+def test_response_rejects_targets_not_linked_to_the_s3_finding() -> None:
+    finding = _finding()
+    finding.rule_id = "s3-public-access-block-removed"
+    finding.affected_resources = ["arn:aws:s3:::cloud-detective-demo"]
+    session = MagicMock()
+    session.get.return_value = finding
+    app.dependency_overrides[get_session] = lambda: session
+    try:
+        result = TestClient(app).post(
+            f"/api/v1/findings/{finding.id}/responses",
+            json={
+                "playbook_id": "block-public-s3",
+                "target_arn": "arn:aws:s3:::unrelated-bucket",
+                "confirmation": "DRY_RUN",
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert result.status_code == 422
+    session.add.assert_not_called()
