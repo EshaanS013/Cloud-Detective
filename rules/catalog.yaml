@@ -143,8 +143,8 @@ rules:
     description: S3 public-access blocking was deleted or a protection setting was disabled.
     match:
       any_of:
-        - event_name: [DeletePublicAccessBlock]
-        - event_name: [PutPublicAccessBlock]
+        - event_name: [DeleteBucketPublicAccessBlock, DeletePublicAccessBlock]
+        - event_name: [PutBucketPublicAccessBlock, PutPublicAccessBlock]
           public_access_protection_disabled: true
     base_score: 75
     playbook_id: block-public-s3

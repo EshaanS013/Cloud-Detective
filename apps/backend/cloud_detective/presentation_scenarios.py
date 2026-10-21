@@ -240,7 +240,7 @@ def presentation_events(now: datetime | None = None) -> list[dict]:
         "CD-DEMO-103",
         0,
         11,
-        "DeletePublicAccessBlock",
+        "DeleteBucketPublicAccessBlock",
         "s3.amazonaws.com",
         actor,
         "203.0.113.103",

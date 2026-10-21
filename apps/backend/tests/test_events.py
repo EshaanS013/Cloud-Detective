@@ -107,7 +107,7 @@ def test_s3_bucket_is_derived_when_cloudtrail_omits_resources() -> None:
     payload["detail"].update(
         {
             "eventSource": "s3.amazonaws.com",
-            "eventName": "DeletePublicAccessBlock",
+            "eventName": "DeleteBucketPublicAccessBlock",
             "requestParameters": {"bucketName": "cloud-detective-demo-bucket"},
             "resources": [],
         }

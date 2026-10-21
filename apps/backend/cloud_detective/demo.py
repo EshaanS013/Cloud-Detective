@@ -47,7 +47,7 @@ def demo_events(rule_id: str, now: datetime) -> list[dict]:
             "new-policy-version-set": "CreatePolicyVersion",
             "role-trust-policy-modified": "UpdateAssumeRolePolicy",
             "s3-public-policy": "PutBucketPolicy",
-            "s3-public-access-block-removed": "DeletePublicAccessBlock",
+            "s3-public-access-block-removed": "DeleteBucketPublicAccessBlock",
             "s3-public-acl": "PutBucketAcl",
             "s3-encryption-removed": "DeleteBucketEncryption",
             "rds-made-public": "ModifyDBInstance",

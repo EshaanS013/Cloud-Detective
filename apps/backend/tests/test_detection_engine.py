@@ -89,7 +89,7 @@ def positive_event(rule_id: str, index: int = 0) -> CanonicalEvent:
             },
         }
     elif rule_id == "s3-public-access-block-removed":
-        overrides = {"event_name": "DeletePublicAccessBlock"}
+        overrides = {"event_name": "DeleteBucketPublicAccessBlock"}
     elif rule_id == "s3-public-acl":
         overrides = {
             "event_name": "PutBucketAcl",
